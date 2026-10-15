@@ -30,5 +30,9 @@ dist-ssr
 # Datos locales. NO se suben: `analisis-futbol.sqlite` lleva la clave de football-data.org en
 # `server_secrets`, además de los picks, el bankroll y las copias del localStorage. Y entre la base, sus
 # copias y los Excel de `data/ligas` son 77 MB que no pintan nada en el repositorio.
-data/
-picks-recuperados-mathw.json
+#
+# La barra del principio es imprescindible: `data/` a secas coincide a CUALQUIER nivel, así que también
+# excluía `src/data/` —los catálogos de equipos, que sí son código— y la compilación fallaba en el
+# servidor con «Cannot find module '../../data/officialTeams'».
+/data/
+/picks-recuperados-mathw.json

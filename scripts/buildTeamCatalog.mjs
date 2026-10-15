@@ -126,7 +126,7 @@ const teams = [...equipos.values()].sort((a, b) => Number(a.espnId) - Number(b.e
 
 const fecha = new Date().toISOString().slice(0, 10);
 const salida = `// GENERADO por scripts/buildTeamCatalog.mjs el ${fecha}. No editar a mano: \`npm run catalog\`.
-import type { CatalogTeam } from '../domain/models/teamCatalog.ts';
+import type { CatalogTeam } from '../src/domain/models/teamCatalog.ts';
 
 export const CATALOG_GENERATED_AT = '${fecha}';
 
