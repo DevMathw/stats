@@ -1,7 +1,7 @@
 import type { PersistStorage, StorageValue } from 'zustand/middleware';
 import { idbStorage } from './idbStorage';
 import { bettingHasData, diffStore, idsDistintos, type PersistedValue, type Snapshot } from './storeSync';
-import { api } from '../services/apiBase';
+import { api, API_BASE } from '../services/apiBase';
 
 /**
  * Persistencia de los stores en la base SQLite del servidor local, en lugar del almacenamiento del navegador:
@@ -131,7 +131,18 @@ function crear<S>(a: Almacen, avisar: (mensaje: string) => void): PersistStorage
     getItem: async (name) => {
       const lectura = await leerServidor();
       if (!lectura) {
-        avisar(`Sin conexión con la base de datos local: se ven ${a.nombre} de este navegador y los cambios no se guardan. Arranca la app con «npm run dev».`);
+        /*
+         * Decir DÓNDE se intentó conectar, que es el dato que hace falta para arreglarlo.
+         *
+         * El aviso mandaba a «npm run dev», que en una web desplegada es un consejo falso: allí el
+         * problema es que `VITE_API_URL` no apunta al backend, o que el backend no autoriza ese dominio.
+         * Con la dirección a la vista se distinguen los dos casos de un vistazo.
+         */
+        const donde = API_BASE ? API_BASE : 'esta misma web';
+        const consejo = API_BASE
+          ? 'Comprueba que el servidor está en marcha y que autoriza a este dominio.'
+          : 'Arranca la app con «npm run dev», o configura VITE_API_URL si el servidor está en otro sitio.';
+        avisar(`Sin conexión con la base de datos (${donde}): se ven ${a.nombre} de este navegador y los cambios no se guardan. ${consejo}`);
         return ((await leerNavegador(name))?.value ?? null) as StorageValue<S> | null;
       }
       if (lectura.initialized) return desdeServidor(lectura);
