@@ -1,0 +1,13 @@
+# Lo que no debe entrar en la imagen.
+#
+# `data/` sobre todo: son 77 MB con la base, sus copias y los Excel, e incluye la clave de
+# football-data.org. Los datos llegan por el volumen, no por la imagen (ver Dockerfile).
+data
+node_modules
+dist
+.git
+.env
+.env.local
+picks-recuperados-mathw.json
+*.log
+.claude

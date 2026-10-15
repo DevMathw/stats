@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Análisis estadístico y modelos de predicción sobre datos reales de 32 competiciones." />
+
+    <!--
+      Dos cortes de la misma superfamilia: Inter para leer y Inter Tight para los titulares y las cifras
+      grandes. `preconnect` adelanta el handshake con el CDN y `display=swap` pinta ya con la fuente del
+      sistema, así la fuente nunca bloquea el primer render ni deja texto invisible.
+      Sin red, la pila del sistema (Segoe UI Variable / SF / Roboto) sigue funcionando igual.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Inter+Tight:wght@500..700&display=swap"
+    />
+
+    <title>Análisis Estadístico de Fútbol 2026/27</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

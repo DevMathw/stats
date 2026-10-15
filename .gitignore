@@ -1,0 +1,34 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Claves locales
+.env
+.env.local
+
+# Datos locales. NO se suben: `analisis-futbol.sqlite` lleva la clave de football-data.org en
+# `server_secrets`, además de los picks, el bankroll y las copias del localStorage. Y entre la base, sus
+# copias y los Excel de `data/ligas` son 77 MB que no pintan nada en el repositorio.
+data/
+picks-recuperados-mathw.json

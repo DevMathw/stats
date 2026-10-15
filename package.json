@@ -1,0 +1,48 @@
+{
+  "name": "statistics",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "validate": "vitest run src/validation",
+    "catalog": "node scripts/buildTeamCatalog.mjs",
+    "official-teams": "node scripts/buildOfficialTeams.mjs",
+    "medir-prior": "node --experimental-strip-types --import ./scripts/tsResolve.mjs scripts/medirPrior.mts",
+    "medir-entrenamiento": "node --experimental-strip-types --import ./scripts/tsResolve.mjs scripts/medirEntrenamiento.mts",
+    "medir-mercados": "node --experimental-strip-types --import ./scripts/tsResolve.mjs scripts/medirMercados.mts",
+    "start": "node --experimental-strip-types --import ./scripts/tsResolve.mjs server/produccion.ts",
+    "subir-base": "node scripts/subirBase.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^1.43.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3",
+    "recharts": "^3.10.1",
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "autoprefixer": "^10.5.5",
+    "oxlint": "^1.79.0",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}
