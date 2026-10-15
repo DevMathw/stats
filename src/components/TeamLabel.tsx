@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { api } from '../services/apiBase';
 import { useStore } from '../store/useStore';
 import { crestSrc, teamDisplay } from '../domain/models/teamDisplay';
 
@@ -36,7 +37,7 @@ export function TeamCrest({ url, name, size = 18 }: { url: string | null; name: 
 
   return (
     <img
-      src={crestSrc(url)}
+      src={api(crestSrc(url))}
       alt=""
       aria-hidden="true"
       width={size}

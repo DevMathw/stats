@@ -1,6 +1,7 @@
 import type { PersistStorage, StorageValue } from 'zustand/middleware';
 import { idbStorage } from './idbStorage';
 import { bettingHasData, diffStore, idsDistintos, type PersistedValue, type Snapshot } from './storeSync';
+import { api } from '../services/apiBase';
 
 /**
  * Persistencia de los stores en la base SQLite del servidor local, en lugar del almacenamiento del navegador:
@@ -184,7 +185,7 @@ const cuentasDatos = (v: PersistedValue) => ({
 export const sqliteStorage = <S>(avisar: (mensaje: string) => void): PersistStorage<S> =>
   crear<S>(
     {
-      api: '/api/store',
+      api: api('/api/store'),
       nombre: 'los datos',
       leerNavegador: async (name) => globalThis.localStorage?.getItem(name) ?? null,
       hayDatos: (v) => Object.values(cuentasDatos(v)).some((n) => n > 0),
@@ -220,7 +221,7 @@ const textoOrdenado = (v: unknown) =>
 export const bettingSqliteStorage = <S>(avisar: (mensaje: string) => void): PersistStorage<S> =>
   crear<S>(
     {
-      api: '/api/betting',
+      api: api('/api/betting'),
       nombre: 'los picks',
       leerNavegador: async (name) => idbStorage.getItem(name),
       hayDatos: (v) => bettingHasData(v.state),

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { api } from '../services/apiBase';
 import { AlertTriangle, BadgeCheck, CheckCircle2, Download, Plus, RefreshCw, Trash2, Upload, X } from 'lucide-react';
 import { Button, Callout, Card, IconButton, inputClass, PageHeader, ScrollTable, Stat, StatRow, Tabs } from '../components/ui';
 import { HistoricalDatasets } from '../components/HistoricalDatasets';
@@ -20,7 +21,7 @@ import { EXTRA_COMPETITIONS } from '../services/providers/officialSources';
 
 const CAMPO_NUMERO = `${inputClass} w-28 text-right tabular-nums`;
 
-const RUTA_CLAVE = '/api/football-data/key';
+const RUTA_CLAVE = api('/api/football-data/key');
 
 /** La clave se guarda en el servidor local y el proxy la añade a cada petición: el navegador no la vuelve a leer. */
 function ClaveFootballData() {

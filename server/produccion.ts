@@ -116,9 +116,45 @@ function estatico(req: IncomingMessage, res: ServerResponse) {
   createReadStream(archivo).pipe(res);
 }
 
+/**
+ * Dominios desde los que se acepta llamar a la API, separados por comas en `ORIGENES_PERMITIDOS`.
+ *
+ * Solo hace falta con el frontend en Vercel y el backend aquí: son dos dominios distintos y el navegador
+ * bloquea la llamada salvo que la respuesta diga que ese origen vale. Cuando el backend sirve también la
+ * web (que es lo normal), la variable sobra: es el mismo origen y no hay nada que permitir.
+ *
+ * Es una lista explícita y no `*` a propósito. Con `*` cualquier página de internet podría leer tus datos
+ * y escribir en tu base, porque la API no pide credenciales.
+ */
+const ORIGENES = (process.env.ORIGENES_PERMITIDOS ?? '')
+  .split(',')
+  .map((o) => o.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
+/** Devuelve `true` si ya ha contestado (una comprobación previa del navegador). */
+function cors(req: IncomingMessage, res: ServerResponse): boolean {
+  const origen = req.headers.origin;
+  if (origen && ORIGENES.includes(origen)) {
+    res.setHeader('access-control-allow-origin', origen);
+    // Sin esto, una caché podría servirle a un origen la respuesta que autorizaba a otro.
+    res.setHeader('vary', 'origin');
+    res.setHeader('access-control-allow-methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('access-control-allow-headers', 'content-type, authorization');
+    res.setHeader('access-control-max-age', '86400');
+  }
+  // El navegador pregunta antes con OPTIONS si puede mandar un POST con cabeceras. Se contesta y ya.
+  if (req.method === 'OPTIONS') {
+    res.statusCode = origen && ORIGENES.includes(origen) ? 204 : 403;
+    res.end();
+    return true;
+  }
+  return false;
+}
+
 export function arrancar(puerto = Number(process.env.PORT ?? 8080)) {
   const { middlewares, atender } = pila();
   const servidor = createServer((req, res) => {
+    if (cors(req, res)) return;
     if ((req.url ?? '').startsWith('/football-data')) {
       req.url = (req.url ?? '').slice('/football-data'.length) || '/';
       return void proxyFootballData(req, res);

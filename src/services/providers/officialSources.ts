@@ -7,6 +7,7 @@
  * juego o por jugar van a pendientes. Un partido sin jornada se descarta con aviso: la jornada es
  * estructural en este modelo y no se inventa.
  */
+import { api } from '../apiBase';
 import type { Fixture, League, Match, Team } from '../../types';
 import { buildTeamId, resolveMatchId } from '../../domain/models/ids';
 import { espnLeagueId } from '../../domain/models/espnLeagues';
@@ -94,7 +95,7 @@ const SIN_SERVIDOR = '¿Está corriendo npm run dev?';
 export async function fetchOfficialLeagues(): Promise<OfficialLeague[]> {
   let res: Response;
   try {
-    res = await fetch('/api/official-matches');
+    res = await fetch(api('/api/official-matches'));
   } catch {
     throw new Error(`No se pudo contactar con el servidor local. ${SIN_SERVIDOR}`);
   }
@@ -141,7 +142,7 @@ export async function fetchOfficialMatchStats(
 
   let res: Response;
   try {
-    res = await fetch('/api/match-stats', {
+    res = await fetch(api('/api/match-stats'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -182,7 +183,7 @@ export async function fetchMatchMomentum(
 
   let res: Response;
   try {
-    res = await fetch('/api/match-momentum', {
+    res = await fetch(api('/api/match-momentum'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -259,7 +260,7 @@ export class OfficialSourcesProvider implements FootballDataProvider {
 
       let res: Response;
       try {
-        res = await fetch('/api/official-matches', {
+        res = await fetch(api('/api/official-matches'), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ slug, season: league.season }),

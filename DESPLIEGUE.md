@@ -127,6 +127,68 @@ Si vuelves a ejecutar `npm run subir-base`, la base desplegada se **reemplaza** 
 cuidado si para entonces has registrado picks desde la web: se perderían. Para traértelos primero, baja la
 base del servidor antes de volver a subirla.
 
+---
+
+## 5. Opcional: el frontend en Vercel
+
+Railway ya sirve la web. Esto solo tiene sentido si quieres la página en Vercel; **los datos siguen en
+Railway en cualquier caso**, porque Vercel no puede guardarlos.
+
+```
+  Vercel  ─────  la web (dist/)
+     │
+     │  VITE_API_URL
+     ▼
+  Railway ─────  la API y el volumen con la base
+```
+
+El orden importa, porque cada uno necesita saber la dirección del otro.
+
+**1. El backend primero.** Haz los pasos 2 y 3 y quédate con su URL
+(`https://tu-app.up.railway.app`).
+
+**2. El frontend en Vercel.** [vercel.com/new](https://vercel.com/new) → importa el repositorio. El
+`vercel.json` ya trae el framework, el comando y el *fallback* de la SPA. Añade **una variable**:
+
+| Variable | Valor |
+|---|---|
+| `VITE_API_URL` | `https://tu-app.up.railway.app` |
+
+Despliega y copia la URL de Vercel.
+
+**3. Autoriza ese dominio en Railway.** En el backend, añade:
+
+| Variable | Valor |
+|---|---|
+| `ORIGENES_PERMITIDOS` | `https://tu-app.vercel.app` |
+
+Son dos dominios distintos, así que el navegador bloquea las llamadas salvo que la API diga que ese origen
+vale. La lista es explícita y no `*` a propósito: con `*`, cualquier página de internet podría leer tus
+datos y escribir en tu base, porque la API no pide credenciales. Si pones varios, sepáralos por comas.
+
+Railway reinicia solo al cambiar una variable.
+
+### Dos cosas que confunden la primera vez
+
+**`VITE_API_URL` se congela al compilar.** No se lee al abrir la página: queda escrita dentro del
+JavaScript. Si la cambias, hay que **volver a desplegar** en Vercel; guardarla no basta.
+
+**Las vistas previas de Vercel tienen otro dominio.** Cada rama genera algo como
+`tu-app-git-rama-usuario.vercel.app`, que no está en `ORIGENES_PERMITIDOS` y por tanto se queda sin datos.
+Es lo esperado: añádelo a la lista si quieres usarlo, o trabaja contra el dominio de producción.
+
+### Comprobar que se hablan
+
+```bash
+curl -s -i -X OPTIONS -H "Origin: https://tu-app.vercel.app" -H "Access-Control-Request-Method: POST" https://tu-app.up.railway.app/api/store
+```
+
+Tiene que responder `204` con `access-control-allow-origin` apuntando a tu dominio de Vercel. Si responde
+`403`, la variable `ORIGENES_PERMITIDOS` no coincide con el dominio exacto (ojo al `https://` y a que no
+sobre una barra final).
+
+---
+
 ### Las dos máquinas no se sincronizan solas
 
 Hoy casa y despliegue son dos copias independientes de la misma base. Mientras uses una sola, no hay

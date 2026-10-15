@@ -5,6 +5,7 @@
  * Las columnas derivadas (goles totales, BTTS, Over, HT/FT…) se escriben ya calculadas con las
  * mismas funciones que usa la app, que están validadas contra el Excel original.
  */
+import { api } from '../apiBase';
 import type { Fixture, League, Match } from '../../types';
 import {
   awayCleanSheet,
@@ -79,7 +80,7 @@ export async function saveLeagueExcel(input: {
   fixtures: Fixture[];
   opponentPpg: Map<string, { home: number | null; away: number | null }>;
 }): Promise<LeagueExcelSaved> {
-  const res = await fetch('/api/league-excel', {
+  const res = await fetch(api('/api/league-excel'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({

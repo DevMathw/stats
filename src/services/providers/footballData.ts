@@ -13,6 +13,7 @@
  *    las columnas de estadística avanzada siguen en N/D salvo que las cargues de otra fuente.
  *  - `matchday` viene del propio proveedor, así que la jornada no se deduce ni se inventa.
  */
+import { api } from '../apiBase';
 import type { Fixture, League, Match, Team } from '../../types';
 import type { ProviderCompetition } from '../../domain/models/competitionMatcher';
 import { buildTeamId, resolveMatchId } from '../../domain/models/ids';
@@ -71,7 +72,8 @@ export interface FootballDataConfig {
 }
 
 export const DEFAULT_FOOTBALL_DATA_CONFIG: FootballDataConfig = {
-  baseUrl: '/football-data/v4',
+  // Es el proxy del servidor, no football-data.org: la clave la pone él y nunca llega al navegador.
+  baseUrl: api('/football-data/v4'),
   codes: {},
   minIntervalMs: 6100,
 };
