@@ -85,10 +85,22 @@ En **Render** es igual: *New → Web Service*, runtime **Docker**, y en *Disks* 
 
 ## 3. Subir tu base de datos
 
-Una sola vez, desde casa. Pon el mismo token que configuraste arriba:
+Una sola vez, desde casa. Pon el mismo token que configuraste arriba.
+
+> **Nunca escribas el token real en este archivo.** Está en el repositorio: lo que se pegue aquí acaba en
+> GitHub y deja de ser un secreto. El token se escribe en la terminal, y ahí se queda.
+
+En Git Bash:
 
 ```bash
-TOKEN_ADMIN=e2f2f5f3170f66c3508e4696b7656705cd5c56629a49292fe867873a7411b1f4 npm run subir-base -- https://stats-production-e0c8.up.railway.app
+TOKEN_ADMIN=pega-aqui-tu-token npm run subir-base -- https://tu-app.up.railway.app
+```
+
+En PowerShell no existe el prefijo `VARIABLE=valor` delante de un comando; son dos pasos:
+
+```powershell
+$env:TOKEN_ADMIN = "pega-aqui-tu-token"
+npm run subir-base -- https://tu-app.up.railway.app
 ```
 
 El script:
