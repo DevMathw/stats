@@ -88,7 +88,7 @@ En **Render** es igual: *New → Web Service*, runtime **Docker**, y en *Disks* 
 Una sola vez, desde casa. Pon el mismo token que configuraste arriba:
 
 ```bash
-TOKEN_ADMIN=tu-token npm run subir-base -- https://tu-app.up.railway.app
+TOKEN_ADMIN=stats-production-e0c8.up.railway.app
 ```
 
 El script:
