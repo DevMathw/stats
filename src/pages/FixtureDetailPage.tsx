@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Calculator, FlaskConical, Plus, Target } from 'lucide-react';
 import type { Selection } from '../types/betting';
-import { ButtonLink, Callout, Card, Empty, IconButton } from '../components/ui';
+import { BackLink, ButtonLink, Callout, Card, Empty, IconButton } from '../components/ui';
 import { InfoTip } from '../components/InfoTip';
 import { toast } from '../components/Toast';
 import { ModelComposition } from '../components/Match/ModelComposition';
@@ -158,6 +158,8 @@ export function FixtureDetailPage() {
 
   return (
     <div className="space-y-4">
+      <BackLink to="/proyecciones">Proyecciones</BackLink>
+
       {/* El partido primero y grande: es de lo que va toda la pantalla. */}
       <MatchHero fixture={f} projection={p} />
 

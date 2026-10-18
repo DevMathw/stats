@@ -146,7 +146,10 @@ function Breadcrumbs() {
 const navClase =
   (colapsado: boolean) =>
   ({ isActive }: { isActive: boolean }) =>
-    `group relative mb-0.5 flex items-center rounded-control py-2 text-[13px] transition-colors ${
+    // `min-h-11 lg:min-h-0`: 44 px para el dedo en el cajón del móvil, que es la navegación principal del
+    // teléfono. En escritorio manda el `py-2` de siempre, porque con ratón 36 px sobran y 44 separaría
+    // tanto los quince destinos que no cabrían sin scroll.
+    `group relative mb-0.5 flex min-h-11 items-center rounded-control py-2 text-[13px] transition-colors lg:min-h-0 ${
       // Contraído es cosa de escritorio: en el cajón del móvil el nombre se lee entero.
       colapsado ? 'gap-2.5 px-3 lg:justify-center lg:gap-0 lg:px-0' : 'gap-2.5 px-3'
     } ${
@@ -231,14 +234,26 @@ export function AppLayout() {
         // React son `focusin`/`focusout`, así que valen para los hijos.
         onFocus={() => setEncima(true)}
         onBlur={() => setEncima(false)}
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-border bg-surface transition-[transform,width] lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-border bg-surface transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
           fijado ? 'lg:w-60' : 'lg:w-[4.5rem]'
         } ${open ? 'translate-x-0 shadow-pop' : '-translate-x-full'}`}
       >
         {/* El panel. Superpuesto cuando lo abre el cursor, para no mover el contenido de sitio. */}
+        {/*
+          * Al pasar el cursor, el panel APARECE; no se estira.
+          *
+          * Antes se animaba el ancho del `aside` de 4,5 a 15 rem, y animar el ancho obliga al navegador a
+          * recalcular la maquetacion en cada fotograma: en esta maquina de dos nucleos eso es un tiron, no
+          * una transicion. Ahora el ancho cambia de golpe y lo que se anima son `opacity` y `transform`,
+          * que van en la capa de composicion y no tocan la maquetacion.
+          *
+          * `motion-reduce`: quien pide menos movimiento ve el panel aparecer sin desplazamiento.
+          */}
         <div
-          className={`flex min-h-0 flex-1 flex-col ${
-            flotando ? 'lg:absolute lg:inset-y-0 lg:left-0 lg:w-60 lg:border-r lg:border-border lg:bg-surface lg:shadow-pop' : ''
+          className={`flex min-h-0 flex-1 flex-col lg:transition-[opacity,transform] lg:duration-150 lg:ease-out motion-reduce:lg:transition-none ${
+            flotando
+              ? 'lg:absolute lg:inset-y-0 lg:left-0 lg:w-60 lg:translate-x-0 lg:border-r lg:border-border lg:bg-surface lg:opacity-100 lg:shadow-pop'
+              : ''
           }`}
         >
         <div className={`flex items-center justify-between border-b border-border py-3.5 ${colapsado ? 'lg:justify-center lg:px-0' : ''} px-4`}>

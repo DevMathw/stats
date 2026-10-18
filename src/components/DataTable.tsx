@@ -278,7 +278,9 @@ export function DataTable<T>({
       {(searchable || toolbar || enTarjetas || grupos.length > 1 || exportTxt) && (
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
           {searchable && (
-            <div className="relative min-w-0 flex-1 sm:max-w-72">
+            // En movil ocupa la fila entera: compartiendola con el selector de columnas y los botones se
+            // quedaba en unos pocos pixeles y los controles se montaban unos encima de otros.
+            <div className="relative min-w-0 max-sm:w-full max-sm:basis-full sm:max-w-72 sm:flex-1">
               <Search size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-faint" />
               <input
                 type="search"
@@ -352,9 +354,11 @@ export function DataTable<T>({
                 descargarTexto(exportTxt.fileName, lineas.join('\n'));
               }}
               disabled={sorted.length === 0}
+              aria-label="Exportar a .txt"
               title="Guarda en un .txt las filas que cumplen los filtros de ahora mismo, en el orden en que están"
             >
-              <Download size={14} aria-hidden /> Exportar
+              <Download size={14} aria-hidden />
+              <span className="hidden sm:inline">Exportar</span>
               <span className="rounded-pill bg-current/15 px-1.5 text-[11px] tabular-nums">{sorted.length}</span>
             </Button>
           )}

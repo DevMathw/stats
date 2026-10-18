@@ -1,6 +1,6 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Children, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Loader2, RefreshCw, X } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, Loader2, RefreshCw, X } from 'lucide-react';
 import { NA } from '../utils/format';
 import { InfoTip } from './InfoTip';
 import { Tooltip, useTooltip } from './Tooltip';
@@ -56,6 +56,28 @@ export function Card({
       )}
       <div className={padded ? 'p-4' : ''}>{children}</div>
     </section>
+  );
+}
+
+/**
+ * Volver al listado del que viene una ficha.
+ *
+ * Las fichas —un partido, un equipo, una competición, una proyección— solo se podían dejar con el botón
+ * atrás del navegador. En el móvil instalado como aplicación ese botón ni siquiera está, así que la ficha
+ * era un callejón sin salida.
+ *
+ * Lleva al LISTADO y no al historial (`navigate(-1)`) a propósito: una ficha también se abre desde un
+ * enlace compartido o un marcador, y ahí «atrás» saca de la aplicación.
+ */
+export function BackLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="toque-alto -ml-1.5 inline-flex items-center gap-1 self-start rounded-control px-1.5 py-1 text-[13px] text-muted transition-colors hover:bg-surface-2 hover:text-text"
+    >
+      <ChevronLeft size={16} className="shrink-0" aria-hidden />
+      {children}
+    </Link>
   );
 }
 
@@ -117,10 +139,46 @@ export function Badge({ children, tone = 'neutral', title }: { children: ReactNo
  * limpia sale con `cols − 1` tarjetas. Una fila de cuatro no lleva `hero`: cuatro tarjetas ya se leen
  * de un vistazo, y destacar una ahí no resuelve nada.
  */
-const COLUMNAS = { 4: 'lg:grid-cols-4', 5: 'md:grid-cols-4 xl:grid-cols-5', 6: 'md:grid-cols-4 xl:grid-cols-6' } as const;
+/**
+ * Columnas segun CUANTAS cifras haya, no segun lo que pida la pantalla.
+ *
+ * Pasarlo a mano ya fallo tres veces: una rejilla de seis con cinco cifras deja un hueco vacio a la
+ * derecha, y con una celda a doble ancho salia una fila huerfana. Contando los hijos, el caso no puede
+ * darse. En movil siempre dos por fila: tres cifras de 19 px no caben en 320 px.
+ */
+const COLUMNAS: Record<number, string> = {
+  1: 'sm:grid-cols-1',
+  2: 'sm:grid-cols-2',
+  3: 'sm:grid-cols-3',
+  4: 'sm:grid-cols-4',
+  5: 'sm:grid-cols-3 lg:grid-cols-5',
+  6: 'sm:grid-cols-3 lg:grid-cols-6',
+  7: 'sm:grid-cols-4 lg:grid-cols-7',
+  8: 'sm:grid-cols-4 lg:grid-cols-8',
+};
 
-export function StatRow({ cols = 6, children }: { cols?: 4 | 5 | 6; children: ReactNode }) {
-  return <div className={`grid grid-cols-2 gap-3 ${COLUMNAS[cols]}`}>{children}</div>;
+/**
+ * La tira de cifras que encabeza una pantalla.
+ *
+ * Es UNA pieza con separadores finos, no seis tarjetas sueltas. Antes cada cifra vivia en su propia
+ * tarjeta con borde, sombra y 3 rem de numero: en Proyecciones sin datos cargados eso eran cinco cajas
+ * enormes para ensenar «0», «0», «0», «N/D» y «N/D». En una herramienta de estadisticas la cabecera tiene
+ * que caber de un vistazo y dejar la pantalla para los datos: la banda paso de ~110 px de alto a ~45.
+ *
+ * Los separadores salen del `gap-px` sobre un fondo del color del borde: con una rejilla que envuelve, es
+ * lo unico que da lineas de 1 px sin huecos ni dobles bordes.
+ */
+export function StatRow({ children }: { children: ReactNode }) {
+  const n = Children.toArray(children).length;
+  return (
+    <div
+      // En movil van de dos en dos: con un numero impar, la ultima ocupa la fila entera. Si no, queda un
+      // hueco del color del borde que parece una tarjeta vacia.
+      className={`grid grid-cols-2 gap-px overflow-hidden rounded-card border border-border bg-border max-sm:[&>*:last-child:nth-child(odd)]:col-span-2 ${COLUMNAS[n] ?? 'sm:grid-cols-4'}`}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function Stat({
@@ -137,53 +195,45 @@ export function Stat({
   value: ReactNode;
   hint?: ReactNode;
   tone?: Tone;
-  /** Qué significa el dato. */
+  /** Que significa el dato. */
   tip?: ReactNode;
   /** Para el dato que encabeza una pantalla. */
   emphasis?: boolean;
   /**
-   * El dato PRINCIPAL de la pantalla, uno solo: cifra mayor y, en pantalla ancha, doble de ancho.
+   * El dato PRINCIPAL de la pantalla, uno solo: cifra algo mayor y un filo de acento a la izquierda.
    *
-   * Existe porque `emphasis` repartido entre dos o tres tarjetas deja de ser jerarquía: si todo destaca,
-   * hay que leerlo todo. `hero` implica `emphasis` para el borde de acento.
+   * Destaca por POSICION y por el filo, no por tamano: una cifra al triple de cuerpo que sus vecinas
+   * desequilibra la cabecera entera y, cuando vale 0, queda ridicula.
    */
   hero?: boolean;
-  /** Marca de qué habla el dato. Decorativo: nunca sustituye al rótulo. */
+  /** Marca de que habla el dato. Decorativo: nunca sustituye al rotulo. */
   icon?: ReactNode;
 }) {
+  const destacado = emphasis || hero;
   return (
-    <div
-      className={`flex min-w-0 flex-col rounded-card border bg-surface px-3.5 py-3 shadow-card ${
-        emphasis || hero ? 'border-accent-border' : 'border-border'
-      } ${hero ? 'col-span-2' : ''}`}
-    >
-      {/* El rótulo se parte en dos líneas antes que cortarse: en móvil, «Corners / parti…» no dice nada. */}
-      <div className="flex items-start gap-1.5">
+    <div className={`relative flex min-w-0 flex-col justify-center bg-surface px-3.5 py-2.5 ${hero ? 'before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-accent' : ''}`}>
+      <div className="flex items-center gap-1.5">
         {icon && (
-          <span className={`mt-px shrink-0 [&_svg]:h-3.5 [&_svg]:w-3.5 ${emphasis || hero ? 'text-accent' : 'text-faint'}`} aria-hidden>
+          <span className={`shrink-0 [&_svg]:h-3 [&_svg]:w-3 ${destacado ? 'text-accent' : 'text-faint'}`} aria-hidden>
             {icon}
           </span>
         )}
-        <span className="t-label min-w-0 text-muted">{label}</span>
+        {/* El rotulo se corta antes que partir la tira en dos alturas distintas. */}
+        <span className="t-label min-w-0 truncate text-[10px] text-muted">{label}</span>
         {tip && <span className="shrink-0">{<InfoTip>{tip}</InfoTip>}</span>}
       </div>
       <div
-        className={`mt-1.5 ${hero ? 't-stat-xl' : emphasis ? 't-stat-lg' : 't-stat'} ${
+        className={`mt-0.5 truncate font-display font-semibold tracking-tight tabular-nums ${hero ? 'text-[23px]' : 'text-[19px]'} ${
           tone === 'positive' ? 'text-positive-text' : tone === 'negative' ? 'text-negative-text' : ''
         }`}
       >
         {value}
       </div>
-      {hint && <div className="mt-1 text-[11px] text-faint">{hint}</div>}
+      {hint && <div className="truncate text-[11px] text-faint">{hint}</div>}
     </div>
   );
 }
 
-/**
- * Reparto de una probabilidad entre varias opciones, en una sola barra.
- * Una barra por opción sube a tres barras que hay que comparar; una barra partida se lee de un vistazo y
- * además deja claro que las partes suman 100 %.
- */
 export function ProbSplit({
   parts,
   height = 'h-2',
@@ -414,7 +464,7 @@ export function Tabs<T extends string>({
             aria-selected={on}
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(t.id)}
-            className={`-mb-px shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
+            className={`toque-alto -mb-px inline-flex shrink-0 items-center border-b-2 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
               on ? 'border-accent text-accent-text' : 'border-transparent text-muted hover:border-border-strong hover:text-text'
             }`}
           >
@@ -545,7 +595,7 @@ export function Button({
         tip.trigger.onBlur();
         setArmado(false);
       }}
-      className={`inline-flex min-h-8 items-center justify-center gap-1.5 rounded-control border font-medium transition-[background-color,border-color,color,transform] duration-150 select-none active:translate-y-px disabled:translate-y-0 disabled:opacity-50 ${
+      className={`toque-alto inline-flex min-h-8 items-center justify-center gap-1.5 rounded-control border font-medium transition-[background-color,border-color,color,transform] duration-150 select-none active:translate-y-px disabled:translate-y-0 disabled:opacity-50 ${
         size === 'sm' ? 'min-h-7 px-2.5 py-1 text-[12px]' : 'px-3 py-1.5 text-[13px]'
       } ${armado ? 'border-transparent bg-negative text-white hover:bg-negative' : BUTTON_VARIANTS[variant]} ${className}`}
     >
@@ -561,7 +611,7 @@ export function ButtonLink({ to, children, variant = 'default', size = 'md' }: {
   return (
     <Link
       to={to}
-      className={`inline-flex min-h-8 items-center justify-center gap-1.5 rounded-control border font-medium transition-colors select-none active:translate-y-px ${
+      className={`toque-alto inline-flex min-h-8 items-center justify-center gap-1.5 rounded-control border font-medium transition-colors select-none active:translate-y-px ${
         size === 'sm' ? 'min-h-7 px-2.5 py-1 text-[12px]' : 'px-3 py-1.5 text-[13px]'
       } ${BUTTON_VARIANTS[variant]}`}
     >
@@ -618,7 +668,8 @@ export function IconButton({
 }) {
   const [armado, setArmado] = useArmado();
   const tip = useTooltip(armado ? confirm : disabled && disabledReason ? disabledReason : (tooltip ?? label), { delay: 200 });
-  const cls = `inline-flex shrink-0 items-center justify-center rounded-control transition-colors ${size === 'sm' ? 'h-7 w-7' : 'h-8 w-8'} ${
+  // `relative toque`: con el dedo, el área que responde son 44 px; el icono sigue midiendo lo mismo.
+  const cls = `relative toque inline-flex shrink-0 items-center justify-center rounded-control transition-colors ${size === 'sm' ? 'h-7 w-7' : 'h-8 w-8'} ${
     armado ? 'bg-negative text-white hover:bg-negative' : ICON_TONES[tone]
   } aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted ${className}`;
 

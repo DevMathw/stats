@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Eye, Users } from 'lucide-react';
 import { FilterBar } from '../components/Filters/FilterBar';
-import { Badge, Card, Empty, FormBadges, IconButton, MiniBar, PageHeader, Stat, StatRow, Tabs } from '../components/ui';
+import { Badge, BackLink, Card, Empty, FormBadges, IconButton, MiniBar, PageHeader, Stat, StatRow, Tabs } from '../components/ui';
 import { DataTable, type Column } from '../components/DataTable';
 import { LeagueLabel } from '../components/LeagueLabel';
 import { useChartStyle } from '../components/Charts/chartStyle';
@@ -304,11 +304,12 @@ export function TeamDetailPage() {
 
   return (
     <div className="grid gap-4">
+      <BackLink to="/equipos">Equipos</BackLink>
       <PageHeader title={<TeamLabel teamId={stats.teamId} name={stats.teamName} size={28} />} description={<LeagueLabel leagueId={stats.leagueId} link size="sm" />} />
 
       {/* La posición es lo primero que se mira de un equipo; la liga ya la dice la cabecera, así que el
           `hint` que la repetía sobraba. */}
-      <StatRow cols={5}>
+      <StatRow>
         <Stat label="Posición" value={fmtInt(stats.position)} hint={`de ${plantilla} equipos`} hero />
         <Stat label="Puntos" value={fmtInt(stats.points)} hint={`${stats.played} PJ`} />
         <Stat label="PPG" value={fmt(stats.ppg)} tip="Puntos por partido." />

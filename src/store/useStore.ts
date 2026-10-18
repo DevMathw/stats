@@ -10,6 +10,7 @@ import type {
 import { EMPTY_FILTERS } from '../types';
 import { DEFAULT_MODEL_PARAMS } from '../domain/models/params';
 import { recalculateAll, type Derived } from '../domain/engine';
+import { sortLeagues } from '../domain/models/leagueOrder';
 import { buildTeamId, resolveMatchId } from '../domain/models/ids';
 import { normalizeTeamName } from '../domain/models/teamResolver';
 import type { ImportIssue } from '../services/import/excelImport';
@@ -352,6 +353,10 @@ export const useStore = create<State>()(
   persist(
     (set, get) => {
       const recompute = (patch: Partial<State> = {}) => {
+        // Las competiciones se guardan YA ordenadas. Ordenar aqui, al entrar, en vez de en cada pantalla:
+        // asi la tabla de Competiciones, el selector de la cabecera y los filtros ensenan el mismo orden
+        // sin que ninguno tenga que acordarse, y no hay forma de que uno se desincronice de los otros.
+        if (patch.leagues) patch = { ...patch, leagues: sortLeagues(patch.leagues) };
         const s = { ...get(), ...patch };
         // La identidad global se reengancha cada vez que cambian los datos o los alias. Al
         // hacerlo aquí, ninguna vía de entrada (Excel, «Actualizar partidos», alta manual) se
@@ -1342,6 +1347,7 @@ export const useStore = create<State>()(
         });
         const u = unifyTeamNames({ leagues: state.leagues, matches: r.matches, fixtures: r.fixtures });
         useStore.setState({
+          leagues: sortLeagues(state.leagues),
           matches: u.matches,
           fixtures: u.fixtures,
           teamIssues: r.issues,

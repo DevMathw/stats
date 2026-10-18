@@ -1,16 +1,19 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMemo, useRef } from 'react';
 import { Eye, FileUp, RefreshCw, Trophy } from 'lucide-react';
 import { fmtInt } from '../utils/format';
-import { Badge, Card, Empty, IconButton, PageHeader, Stat, StatRow } from '../components/ui';
+import { Badge, BackLink, Button, Callout, Card, Empty, IconButton, inputClass, PageHeader, Stat, StatRow } from '../components/ui';
 import { DataTable, type Column } from '../components/DataTable';
 import { CountryFlag } from '../components/LeagueLabel';
 import { countryName } from '../domain/models/countries';
-import type { League, StandingRow } from '../types';
+import type { League, Match, StandingRow } from '../types';
 import { fmt } from '../utils/format';
 import { formatRound } from '../domain/models/ids';
 import { describeLeagueRounds } from '../domain/statistics/leagueRounds';
-import { competitionFormat, describeFormat, SHAPE_LABEL } from '../domain/models/competitionFormat';
+import { seasonTable } from '../domain/statistics/seasonTable';
+import { compareSeasons, seasonKey } from '../domain/models/season';
+import { shortDate } from '../utils/matchTime';
+import { competitionFormat, describeFormat } from '../domain/models/competitionFormat';
 import { useStore } from '../store/useStore';
 import { TeamLabel } from '../components/TeamLabel';
 import { UpdateLogPanel } from '../components/UpdateLogPanel';
@@ -132,7 +135,6 @@ export function LeaguesPage() {
           </span>
         );
       },
-      sortValue: (l) => l.name,
     },
     {
       id: 'partidos',
@@ -142,7 +144,6 @@ export function LeaguesPage() {
         const n = countByLeague.get(l.id) ?? 0;
         return n === 0 ? <span className="text-negative-text">0</span> : n;
       },
-      sortValue: (l) => countByLeague.get(l.id) ?? 0,
     },
     {
       id: 'jornada',
@@ -160,7 +161,6 @@ export function LeaguesPage() {
           </Tooltip>
         );
       },
-      sortValue: (l) => roundsByLeague.get(l.id)?.currentRound ?? null,
     },
     {
       id: 'equipos',
@@ -181,7 +181,6 @@ export function LeaguesPage() {
           n
         );
       },
-      sortValue: (l) => teamsByLeague.get(l.id) ?? 0,
     },
     {
       id: 'formato',
@@ -196,7 +195,6 @@ export function LeaguesPage() {
           </Tooltip>
         );
       },
-      sortValue: (l) => competitionFormat(l).structure,
     },
   ];
 
@@ -221,7 +219,6 @@ export function LeaguesPage() {
           getRowId={(l) => l.id}
           searchable={(l) => `${l.name} ${countryName(l.country)} ${l.confederation}`}
           searchPlaceholder="Buscar competición o país…"
-          initialSort={{ id: 'partidos', dir: 'desc' }}
           maxHeight="none"
           actions={(l) => (
             <>
@@ -245,15 +242,14 @@ export function LeaguesPage() {
   );
 }
 
-/** Un dato del formato: etiqueta pequeña y valor legible. */
-function Dato({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
-  return (
-    <div className={`min-w-0 ${wide ? 'col-span-2 lg:col-span-4' : ''}`}>
-      <dt className="text-[11px] tracking-wide text-faint uppercase">{label}</dt>
-      <dd className="mt-0.5 break-words">{value}</dd>
-    </div>
-  );
-}
+/**
+ * La temporada que se esta viendo, en la direccion.
+ *
+ * NO se llama `temporada`: esa clave es la del filtro global de temporada (`useFiltersInUrl`), que al
+ * sincronizar los filtros del store la reescribia y la borraba al instante. El selector se quedaba un
+ * fotograma en la temporada elegida y volvia solo a la vigente.
+ */
+const CLAVE_TEMPORADA = 'edicion';
 
 export function LeagueDetailPage() {
   const { leagueId = '' } = useParams();
@@ -263,12 +259,59 @@ export function LeagueDetailPage() {
   // dentro del selector crea un array nuevo en cada render y zustand entra en bucle
   // ("Maximum update depth exceeded"): lo derivado va en useMemo, no en el selector.
   const standingsByLeague = useStore((s) => s.derived.standingsByLeague);
-  const rounds = useStore((s) => s.derived.roundsByLeague.get(id));
-  const averages = useStore((s) => s.derived.averagesByLeague.get(id));
+  const averagesVigentes = useStore((s) => s.derived.averagesByLeague.get(id));
   const allMatches = useStore((s) => s.matches);
+  const params = useStore((s) => s.params);
+  const setFilters = useStore((s) => s.setFilters);
+  const navigate = useNavigate();
+  const [busqueda, setBusqueda] = useSearchParams();
 
-  const standings = useMemo(() => standingsByLeague.get(id) ?? [], [standingsByLeague, id]);
-  const matches = useMemo(() => allMatches.filter((m) => m.leagueId === id), [allMatches, id]);
+  const deLaLiga = useMemo(() => allMatches.filter((m) => m.leagueId === id), [allMatches, id]);
+
+  /**
+   * Las temporadas que esta competicion tiene CARGADAS, de la mas reciente a la mas antigua.
+   *
+   * Solo las que existen de verdad en la base: un selector con temporadas vacias haria creer que faltan
+   * datos cuando lo que pasa es que nunca se importaron.
+   */
+  const temporadas = useMemo(() => {
+    const cuenta = new Map<string, number>();
+    for (const m of deLaLiga) {
+      const k = seasonKey(m.season) ?? m.season;
+      cuenta.set(k, (cuenta.get(k) ?? 0) + 1);
+    }
+    return [...cuenta].sort(([a], [b]) => compareSeasons(b, a) || b.localeCompare(a));
+  }, [deLaLiga]);
+
+  const vigente = seasonKey(league?.season) ?? league?.season ?? '';
+  const pedida = busqueda.get(CLAVE_TEMPORADA);
+  /** La pedida por la direccion si existe; si no, la vigente; y si tampoco, la mas reciente cargada. */
+  const temporada = temporadas.some(([k]) => k === pedida) ? pedida! : temporadas.some(([k]) => k === vigente) ? vigente : (temporadas[0]?.[0] ?? vigente);
+  const esVigente = temporada === vigente;
+
+  const elegirTemporada = (k: string) => {
+    // En la direccion: asi el enlace a una temporada concreta se puede compartir y el boton atras funciona.
+    const siguiente = new URLSearchParams(busqueda);
+    if (k === vigente) siguiente.delete(CLAVE_TEMPORADA);
+    else siguiente.set(CLAVE_TEMPORADA, k);
+    setBusqueda(siguiente, { replace: true });
+  };
+
+  const matches = useMemo(() => deLaLiga.filter((m) => (seasonKey(m.season) ?? m.season) === temporada), [deLaLiga, temporada]);
+
+  /*
+   * La tabla. Para la temporada en curso se usa la del motor, que es la que ve el resto de la aplicacion;
+   * para una cerrada se calcula aqui con la MISMA cadena (`seasonTable`, probado contra el motor).
+   */
+  const deLaTemporada = useMemo(
+    () => (esVigente || !league ? null : seasonTable(league, matches, params)),
+    [esVigente, league, matches, params],
+  );
+  const standings = useMemo(
+    () => (deLaTemporada ? deLaTemporada.standings : (standingsByLeague.get(id) ?? [])),
+    [deLaTemporada, standingsByLeague, id],
+  );
+  const averages = deLaTemporada ? deLaTemporada.averages : averagesVigentes;
 
   if (!league) {
     return (
@@ -287,12 +330,25 @@ export function LeagueDetailPage() {
   }
 
   const formato = competitionFormat(league);
-  const equipos = new Set(matches.flatMap((m) => [m.homeTeamId, m.awayTeamId])).size;
-  // Con fases, la tabla de jornadas lleva una fila más que dice a qué fase pertenece cada columna.
-  const conFases = (rounds?.breakdown ?? []).some((b) => b.phase);
-  const posicionActual = rounds
-    ? rounds.breakdown.findIndex((b) => (b.phase ?? null) === rounds.currentPhase && b.round === rounds.currentRound) + 1
-    : 0;
+
+  const resultadoCols: Column<Match>[] = [
+    { id: 'fecha', header: 'Fecha', cell: (m) => <span className="whitespace-nowrap">{shortDate(m.date)}</span>, sortValue: (m) => m.date },
+    { id: 'jornada', header: 'J', title: 'Jornada', numeric: true, hideOnMobile: true, cell: (m) => m.round, sortValue: (m) => m.round },
+    {
+      id: 'partido',
+      header: 'Partido',
+      cell: (m) => (
+        <span className="flex items-center gap-2">
+          <TeamLabel teamId={m.homeTeamId} name={m.homeTeamName} />
+          <span className="shrink-0 font-semibold tabular-nums">
+            {m.homeGoals === null || m.awayGoals === null ? <span className="text-faint">—</span> : `${m.homeGoals}–${m.awayGoals}`}
+          </span>
+          <TeamLabel teamId={m.awayTeamId} name={m.awayTeamName} />
+        </span>
+      ),
+      sortValue: (m) => m.homeTeamName,
+    },
+  ];
 
   const standingCols: Column<StandingRow>[] = [
     { id: 'pos', header: '#', title: 'Posición', numeric: true, width: '3rem', cell: (r) => r.position, sortValue: (r) => r.position },
@@ -326,115 +382,113 @@ export function LeagueDetailPage() {
 
   return (
     <div className="space-y-4">
+      <BackLink to="/ligas">Competiciones</BackLink>
       <PageHeader
         title={
           <span className="flex items-center gap-2">
             <CountryFlag country={league.country} /> {league.name}
           </span>
         }
-        description={`${countryName(league.country)} · ${league.season} · ${formato.structure || league.calendarFormat || 'formato sin medir'}`}
+        description={
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
+            <span>
+              {countryName(league.country)} · {formato.structure || league.calendarFormat || 'formato sin medir'}
+            </span>
+            {/* Antes eran dos tarjetas al pie de la pagina para dos lineas de texto. */}
+            {league.source && <Badge title={`Fuente de los datos: ${league.source}`}>{league.source}</Badge>}
+            {league.reliabilityNotes && (
+              <Badge tone="warning" title={league.reliabilityNotes}>
+                Confiabilidad
+              </Badge>
+            )}
+          </span>
+        }
+        actions={
+          temporadas.length > 1 && (
+            <label className="flex items-center gap-2 text-[13px]">
+              <span className="text-muted">Temporada</span>
+              <select className={`${inputClass} max-w-56`} value={temporada} onChange={(e) => elegirTemporada(e.target.value)}>
+                {temporadas.map(([k, n]) => (
+                  <option key={k} value={k}>
+                    {k === vigente ? `${k} · en curso` : k} ({n})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )
+        }
       />
 
-      <StatRow cols={4}>
-        <Stat label="Partidos cargados" value={matches.length} />
+      {/*
+        * Todo lo de abajo es de la temporada ELEGIDA, no de las cuatro juntas. Antes esta pantalla contaba
+        * los partidos de todas las temporadas cargadas y los enseñaba al lado de una tabla que solo era de
+        * la vigente: «1.218 partidos» y veinte equipos con seis jornadas.
+        */}
+      <StatRow>
+        <Stat
+          label="Temporada"
+          value={<span className="whitespace-nowrap">{temporada}</span>}
+          hint={esVigente ? 'en curso' : 'cerrada'}
+          icon={<Trophy />}
+          hero
+        />
+        <Stat label="Partidos" value={matches.length} hint={temporadas.length > 1 ? `de ${deLaLiga.length} en total` : undefined} />
         <Stat label="Equipos" value={standings.length} />
         <Stat label="% empates" value={averages ? `${(averages.drawRate * 100).toFixed(1)} %` : '—'} tip="Partidos que acabaron en empate sobre los jugados. Es la base del empate del modelo 1X2." />
         <Stat label="PPG medio" value={fmt(averages?.ppg ?? null)} tip="Puntos por partido medios de la liga: la referencia del ajuste por calidad de rivales (SoS)." />
       </StatRow>
 
-      <Card title="Formato de la competición" subtitle="Lo medido en su fuente y lo que publica la propia competición">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 p-4 text-[13px] lg:grid-cols-4">
-          <Dato label="Tipo" value={formato.kind === 'continental' ? 'Competición continental de clubes' : 'Liga nacional'} />
-          <Dato label="Temporada" value={SHAPE_LABEL[formato.shape]} />
-          <Dato label="Equipos" value={`${equipos} con partidos cargados`} />
-          <Dato label="Fase regular" value={formato.regularRounds === null ? 'Sin numeración estable en la fuente' : `${formato.regularRounds} jornadas`} />
-          <Dato label="Grupos o conferencias" value={formato.groups ? 'Sí' : 'No'} />
-          <Dato label="Fase final" value={formato.finalStage ?? 'No tiene'} />
-          <Dato label="Ascenso" value={formato.promotion === null ? 'Sin documentar' : formato.promotion ? 'Sí' : 'No'} />
-          <Dato label="Descenso" value={formato.relegation === null ? 'Sin documentar' : formato.relegation ? 'Sí' : 'No'} />
-          {formato.stages && (
-            <Dato
-              label="Etapas de la fase regular"
-              value={formato.stages.map((e) => `${e.name} (${e.rounds} jornadas)`).join(' · ')}
-              wide
-            />
-          )}
-          {formato.note && <Dato label="Particularidad" value={formato.note} wide />}
-        </dl>
-      </Card>
+      {!esVigente && (
+        <Callout tone="neutral">
+          Estás viendo la temporada <strong>{temporada}</strong>, ya cerrada. La tabla y las medias salen solo de sus
+          partidos. Las proyecciones y los picks de la aplicación siempre usan la temporada en curso
+          (<button type="button" className="font-medium text-accent-text hover:underline" onClick={() => elegirTemporada(vigente)}>volver a {vigente}</button>).
+        </Callout>
+      )}
 
-      <Card title="Tabla de posiciones" subtitle="Puntos → diferencia de goles → goles a favor">
+      <Card title={`Tabla de posiciones · ${temporada}`} subtitle="Puntos → diferencia de goles → goles a favor">
         <DataTable
           rows={standings}
           columns={standingCols}
           getRowId={(r) => r.teamId}
           initialSort={{ id: 'pos', dir: 'asc' }}
           maxHeight="none"
-          empty="Esta liga no tiene partidos cargados."
+          empty={`No hay partidos cargados de la temporada ${temporada}.`}
         />
       </Card>
 
-      <Card title="Jornadas cargadas" subtitle={rounds ? describeLeagueRounds(rounds) : 'Sin partidos ni calendario'}>
-        {!rounds || rounds.breakdown.length === 0 ? (
-          <Empty>Esta competición no tiene partidos ni calendario cargados.</Empty>
-        ) : (
-          <div className="overflow-x-auto p-3">
-            <table className="data w-auto">
-              <thead>
-                {conFases && (
-                  <tr>
-                    <th scope="col">Fase</th>
-                    {rounds.breakdown.map((b, i) => (
-                      <th scope="col" key={`f-${b.phase ?? ''}|${b.round}`} className="num text-[11px] font-normal text-muted">
-                        {i === 0 || rounds.breakdown[i - 1].phase !== b.phase ? (b.phase ?? 'Regular') : ''}
-                      </th>
-                    ))}
-                  </tr>
-                )}
-                <tr>
-                  <th scope="col">Jornada</th>
-                  {rounds.breakdown.map((b) => (
-                    <th scope="col" key={`${b.phase ?? ''}|${b.round}`} className="num" title={b.phase ? `Fase «${b.phase}», jornada ${b.round}` : `Jornada ${b.round}`}>
-                      {b.round}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="whitespace-nowrap">Jugados</td>
-                  {rounds.breakdown.map((b) => (
-                    <td key={`${b.phase ?? ''}|${b.round}`} className="num">
-                      {b.played || <span className="text-faint">·</span>}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="whitespace-nowrap">Pendientes</td>
-                  {rounds.breakdown.map((b, i) => (
-                    <td key={`${b.phase ?? ''}|${b.round}`} className={`num ${b.pending && i < posicionActual ? 'font-semibold text-warning-text' : ''}`}>
-                      {b.pending || <span className="text-faint">·</span>}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-            <p className="mt-2 text-[12px] text-muted">
-              En ámbar, los partidos pendientes de jornadas que <strong>ya empezaron</strong>: aplazados o rezagados. Un hueco entre la jornada
-              actual y la próxima con pendientes significa que esas jornadas no están cargadas, no que no existan.
-            </p>
-          </div>
-        )}
+      {/* Los partidos de la temporada elegida, con enlace a la ficha de cada uno. */}
+      <Card
+        title={`Resultados · ${temporada}`}
+        subtitle={`${matches.length} ${matches.length === 1 ? 'partido cargado' : 'partidos cargados'}`}
+        right={
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              // Partidos ya sabe filtrar por competición y temporada: se reutiliza en vez de repetir aquí
+              // la tabla con todas sus columnas y su control de datos que faltan.
+              setFilters({ leagueId: id, season: temporada, teamId: null, round: null });
+              navigate('/partidos');
+            }}
+          >
+            Ver en Partidos
+          </Button>
+        }
+      >
+        <DataTable
+          rows={matches}
+          columns={resultadoCols}
+          getRowId={(m) => m.id}
+          searchable={(m) => `${m.homeTeamName} ${m.awayTeamName} ${m.date}`}
+          searchPlaceholder="Buscar equipo o fecha…"
+          pageSize={10}
+          initialSort={{ id: 'fecha', dir: 'desc' }}
+          empty={`No hay partidos cargados de la temporada ${temporada}.`}
+          actions={(m) => <IconButton icon={<Eye size={16} />} label={`Ver ficha de ${m.homeTeamName} – ${m.awayTeamName}`} to={`/partidos/${encodeURIComponent(m.id)}`} />}
+        />
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Fuente" padded>
-          <p className="text-[13px]">{league.source ?? '—'}</p>
-        </Card>
-        <Card title="Confiabilidad" padded>
-          <p className="text-[13px]">{league.reliabilityNotes ?? '—'}</p>
-        </Card>
-      </div>
     </div>
   );
 }

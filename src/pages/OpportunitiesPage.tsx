@@ -13,7 +13,7 @@
  * Agrupado por día y, dentro del día, por ventaja ajustada: primero cuándo se juega, que es lo que no se
  * puede mover, y después cuál se sale más de lo normal en su competición.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Award, CalendarX, SearchX } from 'lucide-react';
 import { FilterBar } from '../components/Filters/FilterBar';
@@ -21,10 +21,31 @@ import { Card, Empty, PageHeader, SectionTitle, Stat, StatRow } from '../compone
 import { MatchCard } from '../components/Match/MatchCard';
 import { useModelPicks } from '../components/Betting/useFixtureData';
 import { MIN_CONFIDENCE, PICK_PROBABILITY } from '../domain/betting/modelPick';
+import { FAMILY_LABEL, MARKET_FAMILIES, marketFamily, type MarketFamily } from '../domain/betting/marketFamily';
 import { longDate } from '../utils/matchTime';
 import { fmt, fmtInt, fmtPct } from '../utils/format';
 import { useStore } from '../store/useStore';
 import type { MatchProjection } from '../types';
+
+/** Chip de filtro: el estado activo se ve por color y por `aria-pressed`, no solo por color. */
+function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      className={`toque-alto inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[13px] font-medium transition-colors ${
+        activo ? 'border-accent bg-accent text-accent-fg' : 'border-border-strong bg-surface text-muted hover:bg-surface-2 hover:text-text'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+const Cuenta = ({ n, activo }: { n: number; activo: boolean }) => (
+  <span className={`rounded-pill px-1.5 text-[11px] tabular-nums ${activo ? 'bg-black/20' : 'bg-surface-2 text-faint'}`}>{n}</span>
+);
 
 export function OpportunitiesPage() {
   const projections = useStore((s) => s.derived.projections);
@@ -50,9 +71,31 @@ export function OpportunitiesPage() {
   const ids = useMemo(() => visibles.map((p) => p.fixtureId), [visibles]);
   const picks = useModelPicks(ids);
 
+  /**
+   * Filtro por tipo de mercado.
+   *
+   * De las 1.856 oportunidades, unas son de goles y otras de corners o tarjetas, y quien busca un pick ya
+   * sabe de cual lo quiere. Sin esto habia que recorrer las tarjetas una a una leyendo el mercado.
+   */
+  const [familia, setFamilia] = useState<MarketFamily | null>(null);
+
+  /** Cuantas hay de cada familia, ANTES de filtrar: si no, los recuentos cambiarian al elegir uno. */
+  const porFamilia = useMemo(() => {
+    const cuenta = new Map<MarketFamily, number>();
+    for (const p of visibles) {
+      const mejor = picks.get(p.fixtureId)?.best;
+      if (!mejor) continue;
+      const f = marketFamily(mejor.selection);
+      cuenta.set(f, (cuenta.get(f) ?? 0) + 1);
+    }
+    return cuenta;
+  }, [visibles, picks]);
+
   /** Los que tienen pick, por día y, dentro del día, por ventaja ajustada. */
   const porDia = useMemo(() => {
-    const conPick = visibles.filter((p) => picks.get(p.fixtureId)?.best);
+    const conPick = visibles
+      .filter((p) => picks.get(p.fixtureId)?.best)
+      .filter((p) => familia === null || marketFamily(picks.get(p.fixtureId)!.best!.selection) === familia);
     const dias = new Map<string, MatchProjection[]>();
     for (const p of conPick) {
       const lista = dias.get(p.date);
@@ -63,7 +106,7 @@ export function OpportunitiesPage() {
       lista.sort((a, b) => (picks.get(b.fixtureId)!.best!.score ?? 0) - (picks.get(a.fixtureId)!.best!.score ?? 0));
     }
     return [...dias].sort(([a], [b]) => a.localeCompare(b));
-  }, [visibles, picks]);
+  }, [visibles, picks, familia]);
 
   const total = porDia.reduce((n, [, lista]) => n + lista.length, 0);
   const hayFiltro = Object.values(filters).some((v) => v !== null);
@@ -90,6 +133,20 @@ export function OpportunitiesPage() {
         description="Los partidos pendientes en los que el modelo encuentra un pick. Sin cuotas de ninguna casa: la referencia es lo habitual en cada competición. Son estimaciones, no pronósticos seguros."
       />
       <FilterBar show={['country', 'league', 'team', 'round', 'dates']} />
+
+      {/* Tipo de mercado. Solo se ensenan las familias que de verdad tienen algun pick hoy. */}
+      {porFamilia.size > 0 && (
+        <div className="tira-filtros mb-3" role="group" aria-label="Tipo de mercado">
+          <Chip activo={familia === null} onClick={() => setFamilia(null)}>
+            Todos <Cuenta n={[...porFamilia.values()].reduce((a, b) => a + b, 0)} activo={familia === null} />
+          </Chip>
+          {MARKET_FAMILIES.filter((f) => porFamilia.has(f)).map((f) => (
+            <Chip key={f} activo={familia === f} onClick={() => setFamilia(familia === f ? null : f)}>
+              {FAMILY_LABEL[f]} <Cuenta n={porFamilia.get(f)!} activo={familia === f} />
+            </Chip>
+          ))}
+        </div>
+      )}
 
       {total > 0 && (
         <>

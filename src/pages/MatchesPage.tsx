@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { BarChart3, Calculator, Database, ExternalLink, Eye, RefreshCw, Table2, Trash2, Upload } from 'lucide-react';
+import { BarChart3, Calculator, ChevronDown, Database, ExternalLink, Eye, RefreshCw, Table2, Trash2, Upload } from 'lucide-react';
 import { FilterBar } from '../components/Filters/FilterBar';
 import { FixtureForm } from '../components/Match/FixtureForm';
 import { MatchDataAction } from '../components/Match/MatchDataForm';
@@ -8,7 +8,7 @@ import { MatchMomentum } from '../components/Match/MatchMomentum';
 import { FixtureCard, PlayedMatchCard } from '../components/Match/MatchListCards';
 import { Tooltip } from '../components/Tooltip';
 import { MATCH_DATA, isMissing, manualDataNames, ZERO_PLAUSIBLE, type MatchDatum } from '../domain/models/matchDataRules';
-import { Badge, Button, Card, Empty, IconButton, PageHeader, Stat, StatRow, Tabs } from '../components/ui';
+import { Badge, BackLink, Button, Card, Empty, IconButton, PageHeader, Stat, StatRow, Tabs } from '../components/ui';
 import { DataTable, type Column } from '../components/DataTable';
 import { LeagueLabel } from '../components/LeagueLabel';
 import { toast } from '../components/Toast';
@@ -37,7 +37,7 @@ import { seasonKey } from '../domain/models/season';
 import { paraNombreDeArchivo } from '../utils/download';
 import { teamDisplay } from '../domain/models/teamDisplay';
 import { KickoffTime } from '../components/Kickoff';
-import { monthYear } from '../utils/matchTime';
+import { monthYear, shortDate } from '../utils/matchTime';
 import { RoundLabel } from '../components/RoundLabel';
 
 export function MatchesPage() {
@@ -462,9 +462,11 @@ function CargarDatoTxt({ datum, matches }: { datum: MatchDatum; matches: Match[]
         loading={leyendo}
         disabled={matches.length === 0}
         onClick={() => input.current?.click()}
+        aria-label={`Cargar ${datum.name} desde un .txt`}
         title={`Carga ${datum.name} desde un .txt con una linea por partido: «Fecha: AAAA-MM-DD | Local n-n Visitante | ${datum.name}: a - b». Solo escribe en los ${matches.length} partidos que se estan viendo, comprueba el marcador de cada linea y no pisa lo que ya tenga dato.`}
       >
-        <Upload size={14} aria-hidden /> Cargar {datum.name}
+        <Upload size={14} aria-hidden />
+        <span className="hidden sm:inline">Cargar {datum.name}</span>
         <span className="rounded-pill bg-current/15 px-1.5 text-[11px] tabular-nums">{matches.length}</span>
       </Button>
     </>
@@ -503,8 +505,14 @@ function MissingDataBar({
   if (!matches.length) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-2 text-[12px]">
-      <span className="mr-1 text-muted">Faltan datos · {matches.length} disputados:</span>
+    /*
+     * En movil, una sola fila que se desliza; en escritorio, las trece etiquetas saltando de linea como
+     * siempre. A 320 px ocupaban cuatro filas y empujaban la tabla fuera de la pantalla.
+     */
+    <div className="tira-filtros border-b border-border px-3 py-2 text-[12px]">
+      <span className="mr-1 shrink-0 text-muted">
+        Faltan datos<span className="hidden sm:inline"> · {matches.length} disputados</span>:
+      </span>
       {opciones.map((o) => {
         const activo = active === o.id;
         const boton = (
@@ -577,10 +585,31 @@ function StatsAction({ match, busyId, onClick }: { match: Match; busyId: string 
 }
 
 /** Una estadística del partido, local frente a visitante, con la barra del reparto. */
+/**
+ * El 1X2 con su significado al lado.
+ *
+ * `resultFT` devuelve `'1' | 'X' | '2'`, que es la notacion del modelo y de los mercados. Sola, en una
+ * lista de cifras, se lee como un numero: «Resultado final: 2». Con el nombre del equipo detras se
+ * entiende sin saber la notacion, y quien la sabe sigue viendo el codigo.
+ */
+function Resultado({ codigo, match }: { codigo: '1' | 'X' | '2' | null; match: Match }) {
+  if (codigo === null) return NA;
+  const que = codigo === '1' ? `gana ${match.homeTeamName}` : codigo === '2' ? `gana ${match.awayTeamName}` : 'empate';
+  return (
+    <span className="flex flex-wrap items-baseline gap-x-1.5">
+      <span className="font-semibold">{codigo}</span>
+      <span className="text-[12px] text-muted">{que}</span>
+    </span>
+  );
+}
+
 function StatCompare({ label, home, away, format = (v) => String(v) }: { label: string; home: number | null; away: number | null; format?: (v: number) => ReactNode }) {
   const hay = home !== null && away !== null;
   const total = hay ? home + away : 0;
-  const cuotaLocal = hay && total > 0 ? (home / total) * 100 : 50;
+  // Con 0-0 (las rojas, casi siempre) no hay reparto que pintar. Sin esto salían dos medias barras, que se
+  // leen como «mitad y mitad» en lugar de «no pasó nada».
+  const reparto = hay && total > 0;
+  const cuotaLocal = reparto ? (home / total) * 100 : 50;
   const lider = (a: number | null, b: number | null) => (a !== null && b !== null && a > b ? 'font-semibold text-text' : 'text-muted');
   return (
     <div>
@@ -591,13 +620,86 @@ function StatCompare({ label, home, away, format = (v) => String(v) }: { label: 
       </div>
       <div className="flex h-1.5 gap-1" aria-hidden>
         <div className="flex flex-1 justify-end overflow-hidden rounded-pill bg-surface-3">
-          {hay && <div className="h-full rounded-pill bg-accent" style={{ width: `${cuotaLocal}%`, opacity: home! >= away! ? 1 : 0.45 }} />}
+          {reparto && <div className="h-full rounded-pill bg-accent" style={{ width: `${cuotaLocal}%`, opacity: home! >= away! ? 1 : 0.45 }} />}
         </div>
         <div className="flex flex-1 overflow-hidden rounded-pill bg-surface-3">
-          {hay && <div className="h-full rounded-pill" style={{ width: `${100 - cuotaLocal}%`, background: 'var(--series-2)', opacity: away! >= home! ? 1 : 0.45 }} />}
+          {reparto && <div className="h-full rounded-pill" style={{ width: `${100 - cuotaLocal}%`, background: 'var(--series-2)', opacity: away! >= home! ? 1 : 0.45 }} />}
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Los partidos anteriores entre estos dos equipos.
+ *
+ * El dato ya estaba en la base —cuatro temporadas de la mayoría de las ligas— y el modelo lo usa para el
+ * ajuste H2H, pero la ficha no lo enseñaba. Se mira por NOMBRE y no por id de equipo porque es lo mismo que
+ * hace `calculateH2HAdjustment`: así la pantalla enseña exactamente los partidos que pesan en el modelo.
+ */
+function H2H({ match }: { match: Match }) {
+  const todos = useStore((s) => s.matches);
+  const previos = useMemo(() => {
+    const { homeTeamName: local, awayTeamName: visitante } = match;
+    return todos
+      .filter((x) => x.id !== match.id && hasResult(x))
+      .filter(
+        (x) =>
+          (x.homeTeamName === local && x.awayTeamName === visitante) || (x.homeTeamName === visitante && x.awayTeamName === local),
+      )
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [todos, match]);
+
+  if (previos.length === 0) return null;
+
+  // Desde el punto de vista del local de ESTE partido, que es como lo lee quien mira la ficha.
+  let ganados = 0;
+  let empates = 0;
+  let perdidos = 0;
+  for (const x of previos) {
+    const suyos = x.homeTeamName === match.homeTeamName ? x.homeGoals! : x.awayGoals!;
+    const delOtro = x.homeTeamName === match.homeTeamName ? x.awayGoals! : x.homeGoals!;
+    if (suyos > delOtro) ganados++;
+    else if (suyos === delOtro) empates++;
+    else perdidos++;
+  }
+
+  return (
+    <Card
+      title="Enfrentamientos directos"
+      subtitle={`${previos.length} ${previos.length === 1 ? 'partido anterior' : 'partidos anteriores'} entre los dos, de lo que hay cargado`}
+    >
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-4 py-3 text-[13px]">
+        <span className="tabular-nums">
+          <strong className="text-positive-text">{ganados}</strong> <span className="text-muted">ganados por {match.homeTeamName}</span>
+        </span>
+        <span className="tabular-nums">
+          <strong>{empates}</strong> <span className="text-muted">empates</span>
+        </span>
+        <span className="tabular-nums">
+          <strong className="text-negative-text">{perdidos}</strong> <span className="text-muted">ganados por {match.awayTeamName}</span>
+        </span>
+      </div>
+      <ul className="divide-y divide-border">
+        {previos.slice(0, 10).map((x) => (
+          <li key={x.id}>
+            <Link
+              to={`/partidos/${encodeURIComponent(x.id)}`}
+              className="flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-surface-2"
+            >
+              <span className="w-24 shrink-0 text-[12px] whitespace-nowrap text-muted">{shortDate(x.date)}</span>
+              <span className="min-w-0 flex-1 truncate">{x.homeTeamName}</span>
+              <span className="shrink-0 font-semibold tabular-nums">
+                {x.homeGoals}–{x.awayGoals}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-right">{x.awayTeamName}</span>
+              <span className="hidden w-20 shrink-0 text-right text-[11px] text-faint sm:block">{seasonKey(x.season) ?? x.season}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {previos.length > 10 && <p className="px-4 py-2 text-[12px] text-faint">Se ven los 10 más recientes de {previos.length}.</p>}
+    </Card>
   );
 }
 
@@ -631,6 +733,7 @@ export function MatchDetailPage() {
 
   return (
     <div className="space-y-4">
+      <BackLink to="/partidos">Partidos</BackLink>
       <h1 className="sr-only">
         {m.homeTeamName} {m.homeGoals ?? ''} – {m.awayGoals ?? ''} {m.awayTeamName}
       </h1>
@@ -677,7 +780,12 @@ export function MatchDetailPage() {
           </div>
         </Card>
 
-        <Card title="Derivados y procedencia" subtitle="Calculados a partir del marcador y las estadísticas">
+        {/*
+          * Lo CALCULADO a partir del partido, que es lo que se analiza. La procedencia —de qué fuente salió
+          * cada cifra, cuándo se buscó, qué id tiene— iba mezclada aquí en la misma lista de 16 filas: es
+          * trazabilidad, no análisis, y se mira una vez de cada cien. Baja a su propio bloque plegado.
+          */}
+        <Card title="Lo que sale de este partido" subtitle="Calculado a partir del marcador y las estadísticas">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 p-4 text-[13px]">
             <Def label="Goles totales" value={fmtInt(totalGoals(m))} />
             <Def label="Goles 1.ª parte" value={fmtInt(firstHalfTotal(m))} />
@@ -688,33 +796,44 @@ export function MatchDetailPage() {
             <Def label="Amarillas totales" value={fmtInt(yellowCardsTotal(m))} />
             <Def label="Ambos marcan" value={isBtts(m) === null ? na : isBtts(m) ? 'Sí' : 'No'} />
             <Def label="Over 2.5" value={totalGoals(m) === null ? na : totalGoals(m)! > 2.5 ? 'Sí' : 'No'} />
-            <Def label="Resultado al descanso" value={resultHT(m) ?? na} />
-            <Def label="Resultado final" value={resultFT(m) ?? na} />
-            <Def label="Fuente del marcador" value={m.source ?? na} />
-            <Def label="Fuente de estadísticas" value={m.statsSource ?? na} />
-            <Def label="Escritos a mano" value={m.manualFields?.length ? manualDataNames(m.manualFields).join(', ') : na} />
-            <Def label="Actualizado" value={m.updatedAt?.slice(0, 16).replace('T', ' ') ?? na} />
-            <Def label="Estadísticas buscadas" value={m.statsUpdatedAt?.slice(0, 16).replace('T', ' ') ?? na} />
-            <Def label="Id del proveedor" value={m.providerId ?? na} />
+            <Def label="Resultado al descanso" value={<Resultado codigo={resultHT(m)} match={m} />} />
+            <Def label="Resultado final" value={<Resultado codigo={resultFT(m)} match={m} />} />
           </dl>
 
-          {m.statsCitations?.length > 0 && (
-            <div className="border-t border-border p-4">
-              <p className="mb-2 text-[12px] text-muted">De dónde salieron estas cifras. Cualquiera se puede comprobar abriendo su fuente.</p>
-              <ul className="space-y-1">
-                {m.statsCitations.map((url) => (
-                  <li key={url}>
-                    <a href={url} target="_blank" rel="noreferrer noopener" className="flex items-start gap-1.5 rounded text-[12px] break-all text-accent-text hover:underline">
-                      <ExternalLink size={12} className="mt-0.5 shrink-0" aria-hidden />
-                      {url}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <details className="group border-t border-border">
+            <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-4 py-2 text-[13px] font-medium text-muted transition-colors hover:text-text [&::-webkit-details-marker]:hidden">
+              <ChevronDown size={14} className="transition-transform group-open:rotate-180" aria-hidden />
+              De dónde salen estas cifras
+            </summary>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 px-4 pb-4 text-[13px]">
+              <Def label="Fuente del marcador" value={m.source ?? na} />
+              <Def label="Fuente de estadísticas" value={m.statsSource ?? na} />
+              <Def label="Escritos a mano" value={m.manualFields?.length ? manualDataNames(m.manualFields).join(', ') : na} />
+              <Def label="Actualizado" value={m.updatedAt?.slice(0, 16).replace('T', ' ') ?? na} />
+              <Def label="Estadísticas buscadas" value={m.statsUpdatedAt?.slice(0, 16).replace('T', ' ') ?? na} />
+              <Def label="Id del proveedor" value={m.providerId ?? na} />
+            </dl>
+
+            {m.statsCitations?.length > 0 && (
+              <div className="border-t border-border p-4">
+                <p className="mb-2 text-[12px] text-muted">Cualquiera de estas cifras se puede comprobar abriendo su fuente.</p>
+                <ul className="space-y-1">
+                  {m.statsCitations.map((url) => (
+                    <li key={url}>
+                      <a href={url} target="_blank" rel="noreferrer noopener" className="flex items-start gap-1.5 rounded text-[12px] break-all text-accent-text hover:underline">
+                        <ExternalLink size={12} className="mt-0.5 shrink-0" aria-hidden />
+                        {url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </details>
         </Card>
       </div>
+
+      <H2H match={m} />
 
       <MatchMomentum match={m} />
     </div>

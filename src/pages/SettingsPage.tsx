@@ -142,7 +142,7 @@ export function SettingsPage() {
 
         {tab === 'estado' && (
           <div className="space-y-4 p-4">
-            <StatRow cols={4}>
+            <StatRow>
               <Stat label="Última actualización" value={<span className="text-[15px]">{lastUpdate ? new Date(lastUpdate).toLocaleString('es-ES') : '—'}</span>} />
               <Stat label="Partidos cargados" value={fmtInt(matches.length)} />
               <Stat label="Equipos cargados" value={fmtInt(derived.teams.length)} />
@@ -655,7 +655,7 @@ function TeamIdentityPanel() {
 
   return (
     <div className="space-y-4 p-4">
-      <StatRow cols={4}>
+      <StatRow>
         <Stat label="Equipos identificados" value={`${fmtInt(identificados)} de ${fmtInt(teams.length)}`} />
         <Stat label="Clubes en varias competiciones" value={fmtInt(multi.length)} />
         <Stat label="Pendientes de revisar" value={fmtInt(issues.length)} tone={issues.length ? 'warning' : undefined} />

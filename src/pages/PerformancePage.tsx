@@ -91,7 +91,7 @@ export function PerformancePage() {
       {cabecera}
 
       {/* El bankroll virtual manda; el P/L del dia era la segunda grande y hacia competir dos cifras. */}
-      <StatRow cols={5}>
+      <StatRow>
         <Stat label="Bankroll virtual" value={<Amount sc={bankrollOf(profile)} s={cur} stacked />} hint={`inicial ${money(profile.settings.initialBankroll, cur)}`} hero />
         <Stat label="P/L de hoy" value={<Amount sc={Math.round(plHoy * 100) / 100} s={cur} signed stacked />} tone={tone(plHoy)} hint="apuestas liquidadas hoy" />
         <Stat label="ROI" tip={TIPS.roi} value={<MetricValue metric={resumen.roi} format={(v) => pct(v, 2, true)} />} tone={tone(resumen.roi.value)} />
