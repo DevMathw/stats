@@ -120,6 +120,7 @@ export function DataTable<T>({
   actions,
   renderDetail,
   card,
+  vista = 'auto',
   tableId,
   exportTxt,
 }: {
@@ -158,6 +159,15 @@ export function DataTable<T>({
    */
   card?: (row: T) => ReactNode;
   /**
+   * Como se dibujan las filas, cuando hay `card`.
+   *
+   * `auto` es lo de siempre: tabla, y tarjetas solo si la pantalla es estrecha. Las pantallas que tratan
+   * de PARTIDOS pasan `tarjetas`, porque un partido no es un registro: es un enfrentamiento, y leerlo en
+   * veinte columnas obliga a reconstruir con la vista lo que la tarjeta ensena de golpe. La tabla sigue
+   * estando a un clic, que es donde de verdad sirve: comparar una misma cifra entre muchos partidos.
+   */
+  vista?: 'auto' | 'tarjetas' | 'tabla';
+  /**
    * Identifica la tabla para recordar el bloque de columnas elegido. Sin él, el selector funciona pero se
    * olvida al recargar.
    */
@@ -188,7 +198,10 @@ export function DataTable<T>({
     setPage(0);
   }
   const scroll = useRef<HTMLDivElement>(null);
-  const enTarjetas = useEsMovil() && card !== undefined;
+  // El hook va siempre, no dentro de la condicion: no se pueden llamar hooks condicionalmente.
+  const movil = useEsMovil();
+  // En una pantalla estrecha no hay tabla que valga, aunque se pida: veinte columnas no caben.
+  const enTarjetas = card !== undefined && (vista === 'tarjetas' || (vista === 'auto' && movil) || (vista === 'tabla' && movil));
 
   /**
    * Bloque de columnas elegido; `''` es «todas».
@@ -383,7 +396,7 @@ export function DataTable<T>({
       ) : enTarjetas ? (
         // Misma caja que la tabla: hereda el `maxHeight` y el volver arriba al cambiar de página.
         <div ref={scroll} className="overflow-auto overscroll-x-contain" style={{ maxHeight }}>
-          <ul className="grid gap-2 p-3 sm:grid-cols-2">
+          <ul className="grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-3">
             {visible.map((row) => (
               <li key={getRowId(row)} className="flex min-w-0 flex-col gap-1">
                 {card!(row)}

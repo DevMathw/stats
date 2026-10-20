@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Calculator, CalendarClock, Sparkles } from 'lucide-react';
+import { BarChart3, Calculator, CalendarClock, LayoutGrid, Sparkles, Table2 } from 'lucide-react';
 import { FilterBar } from '../components/Filters/FilterBar';
 import { Badge, Button, ButtonLink, Card, IconButton, Modal, PageHeader, ProbBadge, SegmentedControl, Stat, StatRow } from '../components/ui';
 import { DataTable, type Column } from '../components/DataTable';
@@ -267,6 +267,8 @@ export function ProjectionsPage() {
   const teams = useStore((s) => s.derived.teams);
   const [selected, setSelected] = useState<MatchProjection | null>(null);
   const [onlyNextRound, setOnlyNextRound] = useState(false);
+  /** La lista de partidos es lo primero; la tabla queda para comparar una cifra entre muchos. */
+  const [vista, setVista] = useState<'tarjetas' | 'tabla'>('tarjetas');
 
   const rows = useMemo(() => {
     const teamName = filters.teamId ? teams.find((t) => t.id === filters.teamId)?.name : null;
@@ -422,6 +424,16 @@ export function ProjectionsPage() {
             <EstadoDeLosModelos />
             <SegmentedControl
               size="sm"
+              label="Vista"
+              value={vista}
+              onChange={setVista}
+              options={[
+                { value: 'tarjetas' as const, label: <LayoutGrid size={14} />, title: 'Ver como lista de partidos' },
+                { value: 'tabla' as const, label: <Table2 size={14} />, title: 'Ver como tabla, para comparar cifras entre partidos' },
+              ]}
+            />
+            <SegmentedControl
+              size="sm"
               label="Alcance"
               value={onlyNextRound ? 'next' : 'all'}
               onChange={(v) => setOnlyNextRound(v === 'next')}
@@ -484,6 +496,7 @@ export function ProjectionsPage() {
           initialSort={{ id: 'fecha', dir: 'asc' }}
           // En un teléfono la tabla no cabe: las 20 columnas se cambian por la misma tarjeta del dashboard.
           card={(p) => <MatchCard p={p} pick={picks.get(p.fixtureId)} />}
+          vista={vista}
           // Las 20 columnas ocupan 2395 px: ni a 1920 caben. El selector de bloques deja elegir; por
           // defecto se siguen viendo todas, porque esconder datos sin que nadie lo pida no es ayudar.
           tableId="proyecciones"

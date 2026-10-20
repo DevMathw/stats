@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './index.css';
-import { AppLayout } from './components/Layout/AppLayout';
+import { AppShell } from './components/Layout/AppShell';
 import { DashboardPage } from './pages/DashboardPage';
 import { ErrorScreen, NotFound } from './pages/ErrorPage';
 
@@ -22,7 +22,7 @@ const pagina = (carga: () => Promise<Record<string, unknown>>, nombre: string) =
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <AppLayout />,
+    element: <AppShell />,
     // El único que puede recoger un fallo del propio layout: llegados ahí, no hay layout que conservar.
     errorElement: <ErrorScreen />,
     children: [
@@ -32,7 +32,7 @@ const router = createBrowserRouter([
          *
          * Es lo que hace que el error de una pantalla salga DENTRO del layout, con el menú todavía puesto
          * para irse a otro sitio. Con el `errorElement` únicamente en la raíz, React Router sustituiría el
-         * `<AppLayout />` entero y dejaría al usuario en una página suelta y sin navegación.
+         * `<AppShell />` entero y dejaría al usuario en una página suelta y sin navegación.
          */
         errorElement: <ErrorScreen />,
         children: [
