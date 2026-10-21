@@ -7,6 +7,7 @@ import { KickoffTime } from '../components/Kickoff';
 import { toast } from '../components/Toast';
 import { FixturePicker, MarketPicker } from '../components/Betting/Pickers';
 import { Amount, Figure, QualityBadge, RiskBadge, StatusBadge, money, pct, signedMoney } from '../components/Betting/BetUi';
+import { StakeBadge } from '../components/Betting/StakeScale';
 import { coinsInputValue, formatSc, parseCoinsInput } from '../domain/betting/coins';
 import { CORRELATION_LABEL } from '../domain/betting/labels';
 import { TIPS } from '../components/Betting/tips';
@@ -301,7 +302,15 @@ export function TicketsPage() {
                       label="Stake recomendado"
                       tip={TIPS.stake}
                       value={ev.stake && ev.stake.stake > 0 ? <Amount sc={ev.stake.stake} s={cur} stacked /> : '—'}
-                      hint={ev.stake?.bindingLimit && ev.stake.bindingLimit !== 'kelly' ? `limitado por ${limitText(ev.stake.bindingLimit)}` : undefined}
+                      hint={
+                        ev.stake && ev.stake.stake > 0 ? (
+                          <StakeBadge importe={ev.stake.stake} bank={ev.bankroll}>
+                            {ev.stake.bindingLimit && ev.stake.bindingLimit !== 'kelly' && (
+                              <span className="text-[11px] text-faint">limitado por {limitText(ev.stake.bindingLimit)}</span>
+                            )}
+                          </StakeBadge>
+                        ) : undefined
+                      }
                     />
                     <Figure label="Retorno potencial" value={stakeValido ? <Amount sc={simulateOutcome(ev.bankroll, stake, ev.combinedOdds, cur.coinValue).grossReturn} s={cur} stacked /> : '—'} />
                     <Figure label="Ganancia potencial" value={stakeValido ? <Amount sc={simulateOutcome(ev.bankroll, stake, ev.combinedOdds, cur.coinValue).netWin} s={cur} signed stacked /> : '—'} tone="positive" />

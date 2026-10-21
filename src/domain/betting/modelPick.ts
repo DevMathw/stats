@@ -39,6 +39,26 @@ const EQUIPOS = ['home', 'away'] as const;
 /**
  * Mercados que compiten. Sin líneas enteras (pueden devolver el stake) ni hándicaps: los ±0.5 son el 1X2 y la doble
  * oportunidad con otro nombre, y los demás añaden un supuesto sin validar sobre el tamaño del margen (§2).
+ *
+ * Qué NO compite, medido el 21/10/2026 con `runBacktest` sobre 20.906 partidos y 663.610 predicciones, mirando la
+ * calibración en la zona donde se hace un pick (probabilidad ≥ 75 %, las dos colas):
+ *
+ *   - **Corners, totales y por equipo.** El modelo se pasa 9,88 pp (dice 78,8 %, pasa 68,9 %) y en Over 9.5 llega a
+ *     15,68 pp. Ninguna casa se equivoca tanto como para cubrir ese lastre. Y se los llevaba el 21,3 % de los picks
+ *     (15,0 % por equipo + 6,3 % totales), o sea el mercado peor calibrado era el más jugado.
+ *   - **Las líneas de goles que no son 1.5.** Over 1.5 está calibrado (−0,65 pp); Over 2.5 se pasa 6,31 pp, Over 3.5
+ *     4,59 pp. Las de 0.5 y 4.5 no llegan a 300 casos en esa zona, así que no hay con qué defenderlas.
+ *   - **Tiros y tiros a puerta TOTALES**, que no es lo mismo que por equipo. Los totales se pasan 2,65 pp y 4,10 pp;
+ *     los de un solo equipo se quedan CORTOS (`Local: Over 12.5 tiros` dice 79,6 % y pasa 87,6 %, +8,04 pp), que es
+ *     ventaja a favor. Sumar los dos equipos suma también sus dos errores, y ahí se pierde la señal.
+ *   - **Goles por equipo** (`equipo`). Se pasa 3,17 pp sobre 8.808 casos, y `Local: Over 1.5 goles` llega a 5,59 pp.
+ *     Es el mismo patrón que en los conteos, pero aquí no se corrige con la contracción: los goles esperados vienen
+ *     de `expectedGoals`, que ya lleva su propio prior histórico, y nadie ha medido un L para ellos.
+ *   - **Ambos marcan** (`btts`). Se pasa 8,93 pp, el peor de lo que quedaba, y su skill contra la frecuencia de la
+ *     liga es negativo (−0,0023). Son solo 81 casos en la zona de pick, muy pocos para estar seguro del tamaño, pero
+ *     no hay nada que lo defienda: el signo es el mismo por las dos medidas.
+ *
+ * Los mercados siguen existiendo en `COUNT_MARKETS` y en el evaluador: lo que se quita es que el modelo los elija solo.
  */
 export const PICK_MARKETS: Selection[] = [
   { market: 'resultado', outcome: 'home' },
@@ -47,18 +67,11 @@ export const PICK_MARKETS: Selection[] = [
   { market: 'doble', outcome: '1X' },
   { market: 'doble', outcome: 'X2' },
   { market: 'doble', outcome: '12' },
-  ...[0.5, 1.5, 2.5, 3.5, 4.5].flatMap((line) => LADOS.map((side): Selection => ({ market: 'goles', side, line }))),
+  ...[1.5].flatMap((line) => LADOS.map((side): Selection => ({ market: 'goles', side, line }))),
   ...([1, 2] as const).flatMap((half) => [0.5, 1.5].flatMap((line) => LADOS.map((side): Selection => ({ market: 'mitad', half, side, line })))),
-  { market: 'btts', outcome: 'si' },
-  { market: 'btts', outcome: 'no' },
-  ...EQUIPOS.flatMap((team) => [0.5, 1.5, 2.5].flatMap((line) => LADOS.map((side): Selection => ({ market: 'equipo', team, side, line })))),
-  ...[7.5, 8.5, 9.5, 10.5, 11.5].flatMap((line) => LADOS.map((side): Selection => ({ market: 'corners', side, line }))),
   ...[2.5, 3.5, 4.5, 5.5].flatMap((line) => LADOS.map((side): Selection => ({ market: 'tarjetas', side, line }))),
-  // Lineas alrededor de la mediana medida en la base: 26 tiros y 9 a puerta por partido.
-  ...[22.5, 24.5, 26.5, 28.5].flatMap((line) => LADOS.map((side): Selection => ({ market: 'tiros', side, line }))),
-  ...[6.5, 7.5, 8.5, 9.5, 10.5].flatMap((line) => LADOS.map((side): Selection => ({ market: 'sot', side, line }))),
   // Por equipo: las lineas de `COUNT_MARKETS[stat].teamLines`, alrededor de la mediana de cada variable.
-  ...(['corners', 'tarjetas', 'tiros', 'sot'] as const).flatMap((stat) =>
+  ...(['tarjetas', 'tiros', 'sot'] as const).flatMap((stat) =>
     EQUIPOS.flatMap((team) =>
       COUNT_MARKETS[stat].teamLines.flatMap((line) => LADOS.map((side): Selection => ({ market: 'conteoEquipo', stat, team, side, line }))),
     ),

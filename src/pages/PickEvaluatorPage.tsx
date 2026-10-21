@@ -11,6 +11,7 @@ import { toast } from '../components/Toast';
 import { FixturePicker, LineLadder, MarketPicker } from '../components/Betting/Pickers';
 import { ModelPickCard } from '../components/Betting/ModelPick';
 import { Amount, Figure, KellyMeter, OddsVsProbability, QualityBadge, RiskBadge, StatusBadge, money, pct, pp, signedMoney } from '../components/Betting/BetUi';
+import { StakeBadge } from '../components/Betting/StakeScale';
 import { coinsInputValue, formatSc, parseCoinsInput, type MoneySettings } from '../domain/betting/coins';
 import { COMPONENT_LABEL, CORRELATION_LABEL } from '../domain/betting/labels';
 import { TIPS } from '../components/Betting/tips';
@@ -339,7 +340,16 @@ export function PickEvaluatorPage() {
                         label="Stake recomendado"
                         tip={TIPS.stake}
                         value={ev.stake.stake > 0 ? <Amount sc={ev.stake.stake} s={cur} stacked /> : '—'}
-                        hint={ev.stake.bindingLimit && ev.stake.bindingLimit !== 'kelly' ? `limitado por ${limitText(ev.stake.bindingLimit)}` : undefined}
+                        // El mismo importe en la escala 1–100, para compararlo con otras apuestas sin mirar el bank.
+                        hint={
+                          ev.stake.stake > 0 ? (
+                            <StakeBadge importe={ev.stake.stake} bank={ev.bankroll}>
+                              {ev.stake.bindingLimit && ev.stake.bindingLimit !== 'kelly' && (
+                                <span className="text-[11px] text-faint">limitado por {limitText(ev.stake.bindingLimit)}</span>
+                              )}
+                            </StakeBadge>
+                          ) : undefined
+                        }
                       />
                       <Figure label="Bankroll" value={<Amount sc={ev.bankroll} s={cur} stacked />} hint={`disponible ${money(ev.available, cur)}`} />
                     </div>

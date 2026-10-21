@@ -13,6 +13,7 @@ import { STATUS_LABEL } from '../domain/betting/labels';
 import { TIPS } from '../components/Betting/tips';
 import { FAMILY_LABEL, selectionLabel } from '../domain/betting/markets';
 import { betViews, capitalOf, groupPerformance, summarize, type BetView, type CalibrationBin, type GroupRow } from '../domain/betting/metrics';
+import { BANDAS, bandaDe, stakeDeFraccion } from '../domain/betting/stakeScale';
 import { MIN_BACKTEST_SAMPLE, runBacktest, summarizePredictions, type BacktestRow, type BacktestRun } from '../domain/betting/backtest';
 import { unitValue } from '../domain/betting/wallet';
 import { useChartStyle } from '../components/Charts/chartStyle';
@@ -107,6 +108,16 @@ function BetHistory({ tipoInicial }: { tipoInicial: Filtros['tipo'] }) {
   const porMercado = groupPerformance(filtradas, (b) => [{ key: b.family, label: b.familyLabel }]);
   const nombreLiga = new Map(leagues.map((l) => [l.id, l.name]));
   const porLiga = groupPerformance(filtradas, (b) => b.leagueIds.map((id) => ({ key: id, label: nombreLiga.get(id) ?? id })));
+  /*
+   * Lo mismo por banda de stake: es lo que contesta si apostar fuerte te esta saliendo bien o mal.
+   *
+   * Sale de `stakeFraction`, que cada apuesta guardo con el bank de SU momento, asi que una de hace tres
+   * meses y una de hoy caen en la banda que de verdad les toco aunque el bank haya cambiado.
+   */
+  const porBanda = groupPerformance(filtradas, (b) => {
+    const banda = bandaDe(stakeDeFraccion(b.stakeFraction));
+    return [{ key: banda, label: BANDAS[banda].label }];
+  });
   const ligasConApuestas = [...new Set(todas.flatMap((b) => b.leagueIds))];
   const set = (patch: Partial<Filtros>) => setF({ ...f, ...patch });
   const secundarios: (keyof Filtros)[] = ['liga', 'mercado', 'equipo', 'lado', 'cuotaMin', 'cuotaMax', 'riesgo', 'kellyMin', 'kellyMax'];
@@ -342,6 +353,13 @@ function BetHistory({ tipoInicial }: { tipoInicial: Filtros['tipo'] }) {
       <div className="grid gap-4 border-b border-border p-4 xl:grid-cols-2">
         <GroupTable title="Rendimiento por mercado" rows={porMercado} cur={cur} />
         <GroupTable title="Rendimiento por competición" rows={porLiga} cur={cur} />
+        <div className="xl:col-span-2">
+          <GroupTable title="Rendimiento por banda de stake" rows={porBanda} cur={cur} />
+          <p className="mt-2 text-[12px] text-muted">
+            Cada punto de la escala es un 1 % del bank. Si la banda agresiva (20 o más) tiene peor ROI que la
+            conservadora, el tamaño de la apuesta te está restando, no sumando.
+          </p>
+        </div>
       </div>
 
       <DataTable

@@ -58,8 +58,8 @@ describe('Pick del modelo', () => {
     const r = leagueRates(LIGA);
     expect(r.get(selectionKey({ market: 'resultado', outcome: 'home' }))).toEqual({ rate: 0.4, n: 20 });
     expect(r.get(selectionKey({ market: 'doble', outcome: '1X' }))).toEqual({ rate: 0.7, n: 20 });
-    // Sin corners publicados no hay frecuencia.
-    expect(r.get(selectionKey({ market: 'corners', side: 'over', line: 9.5 }))).toEqual({ rate: 0, n: 0 });
+    // Sin tarjetas publicadas no hay frecuencia.
+    expect(r.get(selectionKey({ market: 'tarjetas', side: 'over', line: 4.5 }))).toEqual({ rate: 0, n: 0 });
   });
 
   /*
@@ -70,11 +70,10 @@ describe('Pick del modelo', () => {
   it('un mercado de conteo sin el dato publicado no tiene frecuencia, ni siquiera 0 sobre los partidos jugados', () => {
     const r = leagueRates(LIGA);
     for (const sel of [
-      { market: 'tiros', side: 'over', line: 24.5 },
-      { market: 'sot', side: 'under', line: 6.5 },
       { market: 'tarjetas', side: 'over', line: 3.5 },
+      { market: 'conteoEquipo', stat: 'tiros', team: 'home', side: 'over', line: 12.5 },
       { market: 'conteoEquipo', stat: 'sot', team: 'home', side: 'under', line: 6.5 },
-      { market: 'conteoEquipo', stat: 'corners', team: 'away', side: 'over', line: 4.5 },
+      { market: 'conteoEquipo', stat: 'tarjetas', team: 'away', side: 'over', line: 1.5 },
     ] as const) {
       expect(r.get(selectionKey(sel)), selectionKey(sel)).toEqual({ rate: 0, n: 0 });
     }
@@ -82,15 +81,15 @@ describe('Pick del modelo', () => {
 
   it('con el dato publicado, la frecuencia del conteo sale del dato y no del marcador', () => {
     // 10 partidos con 4 tiros a puerta del local y 10 con 8. «Under 6.5 del local» se da en la mitad.
-    const conSot = [...Array(10)].map(() => ({ ...partido(1, 1), shotsOnTargetHome: 4, shotsOnTargetAway: 3 }) as Match).concat(
-      [...Array(10)].map(() => ({ ...partido(1, 1), shotsOnTargetHome: 8, shotsOnTargetAway: 3 }) as Match),
+    const conSot = [...Array(10)].map(() => ({ ...partido(1, 1), shotsOnTargetHome: 4, shotsOnTargetAway: 3, yellowCardsHome: 3, yellowCardsAway: 1 }) as Match).concat(
+      [...Array(10)].map(() => ({ ...partido(1, 1), shotsOnTargetHome: 8, shotsOnTargetAway: 3, yellowCardsHome: 1, yellowCardsAway: 1 }) as Match),
     );
     const r = leagueRates(conSot);
     expect(r.get(selectionKey({ market: 'conteoEquipo', stat: 'sot', team: 'home', side: 'under', line: 6.5 }))).toEqual({ rate: 0.5, n: 20 });
     // El visitante hace 3 siempre: su under 6.5 se da en los 20.
     expect(r.get(selectionKey({ market: 'conteoEquipo', stat: 'sot', team: 'away', side: 'under', line: 6.5 }))).toEqual({ rate: 1, n: 20 });
-    // Y el total del partido (7 u 11) nunca baja de 6.5.
-    expect(r.get(selectionKey({ market: 'sot', side: 'under', line: 6.5 }))).toEqual({ rate: 0, n: 20 });
+    // Y el total del partido también sale de su dato: 4 o 2 amarillas, así que over 2.5 se da en la mitad.
+    expect(r.get(selectionKey({ market: 'tarjetas', side: 'over', line: 2.5 }))).toEqual({ rate: 0.5, n: 20 });
   });
 
   it('solo elige por encima del 80 %, con la mayor ventaja sobre la liga rebajada por la confianza', () => {
@@ -101,8 +100,19 @@ describe('Pick del modelo', () => {
     expect(r.best?.score).toBeCloseTo(0.12 * 0.8, 12);
     expect(r.summary[0]).toContain('único');
     expect(r.candidates.find((c) => c.key === selectionKey({ market: 'resultado', outcome: 'home' }))?.reason?.category).toBe('probabilidad');
-    // Por arriba también se corta: con 2.7 goles esperados, el under 4.5 (89 %) paga demasiado poco.
-    expect(r.candidates.find((c) => c.key === selectionKey({ market: 'goles', side: 'under', line: 4.5 }))?.reason?.text).toContain('fuera del 80–85 %');
+  });
+
+  it('por arriba también se corta: lo que pasa del 85 % paga demasiado poco', () => {
+    // Con 0.5 goles esperados el under 1.5 sale al 91 %: cuota justa 1.10, que con margen no compensa fallar.
+    const flojo = { ...PROY, expectedGoalsHome: 0.3, expectedGoalsAway: 0.2, expectedGoalsTotal: 0.5 } as MatchProjection;
+    const r = selectModelPick({
+      data: { ...datos(20), projection: flojo },
+      rates: leagueRates(LIGA),
+      settings: DEFAULT_RISK_SETTINGS,
+    });
+    expect(r.candidates.find((c) => c.key === selectionKey({ market: 'goles', side: 'under', line: 1.5 }))?.reason?.text).toContain(
+      'fuera del 80–85 %',
+    );
   });
 
   it('las temporadas anteriores llegan hasta el pick, no se quedan por el camino', () => {

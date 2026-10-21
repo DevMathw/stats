@@ -100,6 +100,29 @@ export interface ExpectedPair {
 
 type Metric = 'corners' | 'cards' | 'shots' | 'shotsOnTarget';
 
+/**
+ * Contracción FINAL de la esperada hacia la media de la liga: `mu' = media + L · (mu − media)`.
+ *
+ * Existe porque contraer los dos factores por separado no contrae su producto. `attack × defense` compone dos
+ * estimaciones ruidosas y, cuando las dos quedan por encima de la media, el resultado se dispara. Medido el
+ * 21/10/2026 sobre los 26.954 partidos de la base: la esperada se pasa un 4,8 % en tarjetas y un 2,3 % en corners,
+ * y en el quinto superior —justo de donde salen los picks— un 8,5 % y un 10,1 %.
+ *
+ * L se ajustó por mínimos cuadrados en el 70 % más antiguo y se comprobó en el 30 % final, que el ajuste no vio: el
+ * desvío de la probabilidad en corners baja de −3,24 % a −0,22 % y el de tarjetas de −2,55 % a −1,69 %, con el Brier
+ * mejorando en los dos. Que L valga 0,3 quiere decir que solo el 30 % de la desviación que calcula el modelo
+ * respecto a su liga es señal; el resto es ruido de la muestra.
+ *
+ * Tiros y tiros a puerta se quedan en 1 (sin contracción) A PROPÓSITO: ahí el modelo se queda CORTO, no largo
+ * (en `Local: Over 12.5 tiros` dice 79,6 % y pasa 87,6 %), así que contraer empeoraría. No se toca lo que no se midió.
+ */
+const CONTRACCION_FINAL: Record<Metric, number> = {
+  cards: 0.38,
+  corners: 0.3,
+  shots: 1,
+  shotsOnTarget: 1,
+};
+
 const LEAGUE_KEYS: Record<
   Metric,
   {
@@ -187,7 +210,16 @@ export function calculateExpectedMetric(
     averages[keys.homeAgainst] as number,
     params.kShrink,
   );
-  return { home, away, total: home + away };
+  /*
+   * Cada lado se contrae hacia SU media de liga, no el total hacia la del total. Da el mismo número en el total
+   * (que es donde se ajustó L) y además deja `home` y `away` coherentes con él, que es lo que leen los mercados
+   * por equipo.
+   */
+  const l = CONTRACCION_FINAL[metric];
+  const contraer = (v: number, media: number) => media + l * (v - media);
+  const homeAjustado = contraer(home, averages[keys.homeFor] as number);
+  const awayAjustado = contraer(away, averages[keys.awayFor] as number);
+  return { home: homeAjustado, away: awayAjustado, total: homeAjustado + awayAjustado };
 }
 
 export type MetricParams = Pick<ModelParams, 'kShrink'> & Partial<Pick<ModelParams, 'statAverageMode'>>;

@@ -7,6 +7,7 @@ import { InfoTip } from '../components/InfoTip';
 import { toast } from '../components/Toast';
 import { descargarArchivo } from '../utils/download';
 import { Amount, money, pct, signedMoney } from '../components/Betting/BetUi';
+import { StakeScaleTable } from '../components/Betting/StakeScale';
 import { coinsInputValue, formatSc, parseCoinsInput } from '../domain/betting/coins';
 import { TIPS } from '../components/Betting/tips';
 import { capitalOf } from '../domain/betting/metrics';
@@ -242,6 +243,25 @@ export function BankrollPage() {
           <RiskSettingsCard key={profile.id + JSON.stringify(profile.settings)} />
         </div>
       </div>
+
+      {/*
+        * Qué vale cada peldaño de la escala con TU bank de ahora mismo.
+        *
+        * Es la tabla del sistema de stake, calculada con tu bankroll en vez de con uno de ejemplo: contesta
+        * «¿cuánto es un stake 10 para mí?» sin hacer la cuenta. No decide nada; el stake lo sigue
+        * calculando Kelly con los topes del perfil.
+        */}
+      <Card
+        title="Escala de stake"
+        subtitle={`Cada punto es un 1 % del bank. Con ${money(bankroll, cur)} disponibles de bankroll`}
+      >
+        <StakeScaleTable bank={bankroll} s={cur} />
+        <p className="border-t border-border px-4 py-2.5 text-[12px] text-muted">
+          La mayoría de las apuestas deberían ir entre <strong className="text-text">1 y 10</strong>. Un stake de{' '}
+          <strong className="text-text">20 o más</strong> se reserva para oportunidades de alta confianza. Subir el stake para
+          recuperar una pérdida es el error que más bankrolls se lleva por delante.
+        </p>
+      </Card>
 
       <Card
         title="Movimientos"
